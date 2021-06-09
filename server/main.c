@@ -9,6 +9,10 @@ int main()
     // changeUserPassword("ghitssierul", "mmmmmm");
     // removeUser("ghitierul");
     // addFriend("ghitssierul", "ghaaaaarul");
-    removeFriend("ghitssierul", "ghaaaaarul");
+    // removeFriend("ghitssierul", "ghaaaaarul");
+
+    //loginUser("ghitssierul", "mmmmmm");
+    // logoutUser("ghitssierul", "OfbKWsu4gRfVMrt1kXjp");
+    deleteOldToken();
     return 0;
 }
