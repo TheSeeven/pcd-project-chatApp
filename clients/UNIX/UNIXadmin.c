@@ -1,74 +1,62 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <netdb.h>
-#include <netinet/in.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
+#define SERVER_PATH "PATH" // TODO: Add a valid path for both client and server
+#define BUFFER_LENGTH 250
+#define FALSE 0
 
 int main(int argc, char *argv[]){
-    int sockfd, portnr, n;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
+    int sockfd, rc, bytesReceived;
+    char buffer[BUFFER_LENGTH];
+    struct sockaddr_un serveraddr;
 
-    char buffer[256];
+    do{
+        sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if(sockfd < 0){
+            perror("socket() failed");
+            break;
+        }
 
-    if(argc < 3){
-        fprintf(stderr, "usage %s hostname port\n", argv[0]);
-        exit(0);
+        bzero(&serveraddr,sizeof(serveraddr));
+        serveraddr.sun_family = AF_UNIX;
+        if(argc > 1){
+            strcpy(serveraddr.sun_path, argv[1]);
+        }
+        else{
+            strcpy(serveraddr.sun_path, SERVER_PATH);
+        }
+        rc = connect (sockfd, (struct sockaddr*)&serveraddr, SUN_LEN(&serveraddr));
+        if(rc < 0){
+            perror("connect() failed");
+            break;
+        }
+
+        bzero(&serveraddr,sizeof(serveraddr));
+        rc = send(sockfd, buffer, sizeof(buffer), 0);
+        if(rc < 0){
+            perror("send() failed");
+            break;
+        }
+        bytesReceived=0;
+        while(bytesReceived<BUFFER_LENGTH){
+            rc = recv(sockfd, &buffer[bytesReceived], BUFFER_LENGTH - bytesReceived, 0);
+            if(rc < 0){
+                perror("recv() failed");
+                break;
+            }
+            else if(rc == 0){
+                printf("The server closed the connection\n");
+                break;
+            }
+            bytesReceived += rc;
+        }
+    }while(FALSE);
+    if(sockfd != -1){
+        close(sockfd);
     }
 
-    portnr = atoi(argv[2]); // Set portno based on argv / 6000
-
-    // Create Socket point
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
-    if(sockfd < 0){
-        perror("ERROR opening socket");
-        exit(1);
-    }
-
-    server = gethostbyname("localhost"); // Set Server based on argv / localhost
-
-    if(server == NULL){
-        fprintf(stderr, "ERROR, no such host\n");
-        exit(0);
-    }
-
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-    serv_addr.sin_port = htons(portnr);
-   
-   /* Now connect to the server */
-   if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-      perror("ERROR connecting");
-      exit(1);
-   }
-   
-   /* Now ask for a message from the user, this message
-      * will be read by server
-   */
-	for(;;){
-
-    printf("Please enter the message: ");
-    bzero(buffer,256);
-    fgets(buffer,255,stdin);
-    
-    /* Send message to the server */
-    
-    if (write(sockfd, buffer, strlen(buffer)) < 0) {
-        perror("ERROR writing to socket");
-        exit(1);
-    }
-    
-    /* Now read server response */
-    bzero(buffer,256);
-
-    if (read(sockfd, buffer, 255) < 0) {
-        perror("ERROR reading from socket");
-        exit(1);
-    }
-        
-    printf("%s\n",buffer);
-    return 0;
-    }
 }
