@@ -8,18 +8,27 @@ class ClientInterface:
 	def __init__(self):
 
 
-		# Variables that are assiged values after server checks #######
-
-		loginFailed = False ## Used only for testing purposes! This variable should be set to True or False depending on the Server Checking of the user credentials!
-
-		############################################################
-
 		## Initialize Inerface
 
 		self.interface = Tk()
 		self.interface.title("<<< ChatApp Login >>>")
 		self.interface.configure(background="black")
 		self.interface.geometry("500x500")
+
+		# Variables that are assiged values after server checks #######
+
+		self.loginFailed = False ## Used only for testing purposes! This variable should be set to True or False depending on the Server Checking of the user credentials!
+		self.SelectedUser = StringVar()
+		self.SelectedUser.set('')
+		self.currentUser = StringVar()
+		self.currentUser.set('Nobody')
+		self.messageToBeSent=StringVar()
+		self.messageToBeSent.set('')
+
+		############################################################
+
+
+		# Setting up the Interface Grid
 		for i in range(0,3):
 			self.interface.grid_columnconfigure(i, weight=1)
 		for j in range(0,3):
@@ -39,6 +48,47 @@ class ClientInterface:
 			self.frame.destroy()
 			self.failMessage.destroy()
 
+		def AddFriend():
+			check = self.connectedUsers.selection_get()
+			fullList= list(self.friendsList.get(0,END))
+			if check not in fullList:
+				userToBeAdded=check
+				print(userToBeAdded)
+				self.friendsList.insert(END, userToBeAdded)
+			#TODO Add verification / send info to server / DB
+
+		def RemoveFriend():
+			check = self.connectedUsers.selection_get()
+			fullList= list(self.friendsList.get(0,END))
+			if check in fullList:
+				userToBeRemoved=check
+				print(userToBeRemoved)
+				self.friendsList.delete(self.friendsList.get(0,END).index(userToBeRemoved))
+			#TODO Add verification / send info to server / DB
+
+		def ChatWith(): 
+			check = self.connectedUsers.selection_get()
+			fullList= list(self.friendsList.get(0,END))
+			print(check)
+			if check in fullList:
+				self.currentUser.set(str(check))
+			else:
+				self.currentUser.set('Nobody')
+			#TODO Add verification / send info to server / DB
+
+		def SendText():
+			textToSend=self.messageEntryBox.get()
+			self.messageToBeSent.set(textToSend)
+			print("Message is: ")
+			print(textToSend)
+			
+			#TODO apel cu mesaj catre >>> self.currentUser <<<
+
+		def AddImage():
+			#TODO open file browser and send image as bytes
+			print("Hehe")
+
+####################################################### CHAT ######################################################################
 		def sendToChat(): ## Function that erases Login Interface and initializes the Chat Interface
 
 			# Setting up new interface parameters
@@ -50,38 +100,59 @@ class ClientInterface:
 				self.listsframe.grid_columnconfigure(i, weight=1)
 			for j in range(0,3):
 				self.listsframe.grid_rowconfigure(j, weight=1)
-			self.listsframe.grid(row=1, column=2)
+			self.listsframe.grid(row=1, column=1)
+
+			# User currently talking to
+			self.curUserLabel = Label(self.interface, textvariable=self.currentUser, bg="black", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=S)
+			self.talkingToLabel = Label(self.interface, text="Currently talking to: ", bg="black", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=SW)
 
 			# Message History Text box
-			self.messageHistory = Text(self.interface, width=40, height=25, wrap=WORD, background="white" ) # TODO add function to save each message that is sent by client and received from the other client!
+			self.messageHistoryScroller = Scrollbar(self.interface)
+			self.messageHistory = Listbox(self.interface, yscrollcommand=self.messageHistoryScroller.set, width=40, height=25, background="white" ) # TODO add function to save each message that is sent by client and received from the other client!
 			self.messageHistory.grid(row=1, column=0)
 
 			# List of Connected Users # TODO Function to get currently connected users or all users
 			self.connectedUsersListLabel = Label(self.listsframe, text="Currently Connected Users", bg="black", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=0)
 			self.cUsersScroll = Scrollbar(self.listsframe)
-			self.connectedUsers = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll, width= 15, height=15)
+			self.connectedUsers = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll.set, width= 15, height=15, selectmode=SINGLE)
+			self.cUsersScroll.config(command = self.connectedUsers.yview)
 			self.connectedUsers.insert(END, "Gigel")
+			self.connectedUsers.insert(END, "Keke")
+			self.connectedUsers.insert(END, "Juger")
 			self.connectedUsers.grid(row=1, column=0)
 			
 			# List of Friends # TODO Function to get friends + Add Friend (Probs will use button) + Remove Friend (Probs will use button)
 			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="black", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
 			self.friendsListScroll = Scrollbar(self.listsframe)
-			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll, width= 15, height=15)
+			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll, width= 15, height=15, selectmode=SINGLE)
 			self.friendsList.insert(END, "Gicu")
+			self.friendsList.insert(END, "Ana")
+			self.friendsList.insert(END, "Mihai")
 			self.friendsList.grid(row=1, column=2)
 
+			# New Frame for all user action buttons
+			self.userActionButtons = Frame(self.listsframe)
+			for i in range(0,1):
+				self.userActionButtons.grid_columnconfigure(i, weight=1)
+			for j in range(0,6):
+				self.userActionButtons.grid_rowconfigure(j, weight=1)
+			self.userActionButtons.grid(row=1, column=1)
+
 			# Add Friend / Block User Buttons -> inside listframe!
-			self.addFriendButton = Button(self.listsframe, width=10) # TODO add function!
-			self.addFriendButton.grid(row=2, column=2)
+			self.addFriendButton = Button(self.userActionButtons, width=10, text="Add Friend", command=AddFriend) # TODO add function!
+			self.addFriendButton.grid(row=0, column=0)
 
-			self.blockUserButton = Button(self.listsframe, width=10) # TODO add function!
-			self.blockUserButton.grid(row=2, column=0)
+			self.removeFriendButton = Button(self.userActionButtons, width=10, text="Remove Friend", command=RemoveFriend) # TODO add function!
+			self.removeFriendButton.grid(row=1, column=0)
 
-			# Box where client can input message # TODO Make function that sends the message to the server
-			self.messageEntryBox = Entry(self.interface, width=40)
+			self.chatWithUser = Button(self.userActionButtons, width=10, text="Talk to", command=ChatWith) # TODO add function!
+			self.chatWithUser.grid(row=2, column=0)
+
+			# Box where client can input message
+			self.messageEntryBox = Entry(self.interface, width=40, textvariable="")
 			self.messageEntryBox.grid(row=2, column=0, columnspan=1)
 
-			# Button Frame creation
+			# Send Message and Send Image Buttons Frame creation
 			self.buttonsFrame = Frame(self.interface)
 			self.buttonsFrame.configure(background="black")
 			for i in range(0,3):
@@ -91,16 +162,21 @@ class ClientInterface:
 			self.buttonsFrame.grid(row=2, column=1)
 
 			# Submit written message button (TODO Make it possible to send the message with "Enter")
-			self.submitButton = Button(self.buttonsFrame, width=6, height=1) # TODO Add Function Command!
+			self.submitButton = Button(self.buttonsFrame, width=4, height=1, text="Send", command=SendText) # TODO Add Function Command!
 			self.submitButton.grid(row=1, column=2)
 
 			# Add Images Button
-			self.addImage = Button(self.buttonsFrame, width=1, height=1) # TODO Add Funtion Command!
+			self.addImage = Button(self.buttonsFrame, width=1, height=1, text="Img", command=AddImage) # TODO Add Funtion Command!
 			self.addImage.grid(row=1, column=0)
+
+			# Exit/Logout
+			# TODO>>
+
+#################################################################################################################################
 
 		# Login check function (TODO, send info that the user provided to the server!)
 		def loginCheck():
-			if(loginFailed == True):
+			if(self.loginFailed == True):
 				self.failMessage.grid(row=2, column=1, sticky="nsew")
 			else:
 				self.failMessage.grid_remove()
