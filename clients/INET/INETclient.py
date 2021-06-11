@@ -8,65 +8,97 @@ class ClientInterface:
 	def __init__(self):
 
 
-		# Variables #######
+		# Variables that are assiged values after server checks #######
 
-		loginFailed = False
+		loginFailed = False ## Used only for testing purposes! This variable should be set to True or False depending on the Server Checking of the user credentials!
 
-		###############
+		############################################################
+
+		## Initialize Inerface
 
 		self.interface = Tk()
 		self.interface.title("<<< ChatApp Login >>>")
 		self.interface.configure(background="black")
 		self.interface.geometry("500x500")
-		
-		self.frame = Frame(self.interface)
-		self.frame.configure(background="black")
 		for i in range(0,3):
 			self.interface.grid_columnconfigure(i, weight=1)
 		for j in range(0,3):
 			self.interface.grid_rowconfigure(j, weight=1)
+
+		## Create Frame 
+
+		self.frame = Frame(self.interface)
+		self.frame.configure(background="black")
 		self.frame.grid(row=1, column=1)
 		
 		# Functions ###
 
-		def exitApp():
+		def exitApp(): ## Application Close Function
 			#self.interface.destroy() ########### Commented for testing purposes, DO NOT DELETE!
 			#exit()					  ########### Commented for testing purposes, DO NOT DELETE!
 			self.frame.destroy()
 			self.failMessage.destroy()
 
-		def sendToChat():
-			# Set new geometry for interface (TODO, make it a fixed size!)
+		def sendToChat(): ## Function that erases Login Interface and initializes the Chat Interface
+
+			# Setting up new interface parameters
+			self.interface.resizable(0,0)
 			self.interface.geometry("720x720")
 			self.listsframe = Frame(self.interface)
 			self.listsframe.configure(background="black")
-			self.listsframe.grid(row=0, column=2)
+			for i in range(0,3):
+				self.listsframe.grid_columnconfigure(i, weight=1)
+			for j in range(0,3):
+				self.listsframe.grid_rowconfigure(j, weight=1)
+			self.listsframe.grid(row=1, column=2)
 
 			# Message History Text box
-			self.messageHistory = Text(self.interface, width=40, height=20, wrap=WORD, background="white", )
-			self.messageHistory.grid(row=0, column=0)
+			self.messageHistory = Text(self.interface, width=40, height=25, wrap=WORD, background="white" ) # TODO add function to save each message that is sent by client and received from the other client!
+			self.messageHistory.grid(row=1, column=0)
 
-			# List of Connected Users
+			# List of Connected Users # TODO Function to get currently connected users or all users
+			self.connectedUsersListLabel = Label(self.listsframe, text="Currently Connected Users", bg="black", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=0)
 			self.cUsersScroll = Scrollbar(self.listsframe)
-			self.connectedUsers = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll)
+			self.connectedUsers = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll, width= 15, height=15)
 			self.connectedUsers.insert(END, "Gigel")
-			self.connectedUsers.grid(row=0, column=0)
+			self.connectedUsers.grid(row=1, column=0)
 			
-			# List of Friends
+			# List of Friends # TODO Function to get friends + Add Friend (Probs will use button) + Remove Friend (Probs will use button)
+			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="black", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
 			self.friendsListScroll = Scrollbar(self.listsframe)
-			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll)
+			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll, width= 15, height=15)
 			self.friendsList.insert(END, "Gicu")
-			self.friendsList.grid(row=0, column=1)
+			self.friendsList.grid(row=1, column=2)
 
-			# Box where client can input message
+			# Add Friend / Block User Buttons -> inside listframe!
+			self.addFriendButton = Button(self.listsframe, width=10) # TODO add function!
+			self.addFriendButton.grid(row=2, column=2)
+
+			self.blockUserButton = Button(self.listsframe, width=10) # TODO add function!
+			self.blockUserButton.grid(row=2, column=0)
+
+			# Box where client can input message # TODO Make function that sends the message to the server
 			self.messageEntryBox = Entry(self.interface, width=40)
 			self.messageEntryBox.grid(row=2, column=0, columnspan=1)
 
-			# Submit written message button (TODO Make it possible to send the message with "Enter")
-			self.submitButton = Button(self.interface, width=10, height=1)
-			self.submitButton.grid(row=2, column=1, columnspan= 2)
+			# Button Frame creation
+			self.buttonsFrame = Frame(self.interface)
+			self.buttonsFrame.configure(background="black")
+			for i in range(0,3):
+				self.buttonsFrame.grid_columnconfigure(i, weight=1)
+			for j in range(0,3):
+				self.buttonsFrame.grid_rowconfigure(j, weight=1)
+			self.buttonsFrame.grid(row=2, column=1)
 
-		# Login check function (TODO, send info that the user provided)
+			# Submit written message button (TODO Make it possible to send the message with "Enter")
+			self.submitButton = Button(self.buttonsFrame, width=6, height=1) # TODO Add Function Command!
+			self.submitButton.grid(row=1, column=2)
+
+			# Add Images Button
+			self.addImage = Button(self.buttonsFrame, width=1, height=1) # TODO Add Funtion Command!
+			self.addImage.grid(row=1, column=0)
+
+		# Login check function (TODO, send info that the user provided to the server!)
 		def loginCheck():
 			if(loginFailed == True):
 				self.failMessage.grid(row=2, column=1, sticky="nsew")
