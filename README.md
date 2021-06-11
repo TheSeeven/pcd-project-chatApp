@@ -4,4 +4,3 @@ This is a project for my university for the Concurential Programing subject. I w
 Documentation:
 
 TO-DO: After the app is done!
-ddd
