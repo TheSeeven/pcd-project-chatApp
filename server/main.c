@@ -3,15 +3,15 @@
 int main(int argc, char **argv)
 {
     // initializeDatabase();
-    friendPack t = getFriendList("ghitssierul", "tsk7EHqSs4n3JgYvwEo2");
+    dataPack t = getUser("ghitssierul", "tsk7EHqSs4n3JgYvwEo2");
     FILE *f = fopen("test", "a+");
     for (int i = 0; i < t.msgLength; i++)
     {
         fputc(t.data[i], f);
     }
     fclose(f);
-    // char test1[10] = {0};
-    // intToString(1254, test1);
+    // // char test1[10] = {0};
+    // // intToString(1254, test1);
 
     return 0;
 }
