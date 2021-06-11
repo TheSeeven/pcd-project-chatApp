@@ -7,8 +7,9 @@
             "args": [
                 "-g",
                 "${file}",
-                "-pthread",
                 "-lsqlite3",
+                "-pthread",
+                "-lm",
                 "-o",
                 "${fileDirname}/${fileBasenameNoExtension}"
             ],
