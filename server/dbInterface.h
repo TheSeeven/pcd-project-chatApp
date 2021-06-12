@@ -56,11 +56,11 @@ void generateToken(char *token)
     }
 }
 
-//generates a random string for pictureLink
-void generateRandomString(char *dest, int from)
+//generates a random string for fileLink
+void generateRandomString(char *dest, int from, int to)
 {
     srand(time(NULL));
-    for (int i = from; i < strlen(dest); i++)
+    for (int i = from; i < to - 1; i++)
     {
         dest[i] = charset[rand() % 61];
     }
@@ -440,12 +440,15 @@ dataPack serializeDataMessage(sqlite3_stmt *data)
 }
 
 //generates a string for picturelink
-char *generatePictureLink(char *filename)
+char *generateFileLink(char *filename)
 {
-    char *result = malloc(11 + strlen(filename));
+    int filenameSize = strlen(filename);
+    int finalSize = 12 + filenameSize;
+    char *result = malloc(finalSize);
+    memset(result, '\0', finalSize);
     strcpy(result, filename);
-    result[strlen(filename) + 1] = '/';
-    generateRandomString(result, strlen(filename) + 2);
+    result[filenameSize] = '/';
+    generateRandomString(result, filenameSize + 1, finalSize);
     return result;
 }
 
@@ -571,37 +574,20 @@ bool insertUser(char *username, char *email, char *phone, char *password)
 
 // updates the profile picture of a user return 'true' for success, 'false' for fail
 // NOTE: THE SECOND PARAMETER WILL BE CHANGED LATER TO A DIFERENT TYPE
-bool changeProfilePicture(char *username, char *token, FILE *picture)
+bool changeProfilePicture(char *username, char *token, char *picture, int pictureSize)
 {
     if (!isAuthenticated(username, token))
         return QUERY_FAIL;
 
-    int fileLength;
-    int fileSize;
-    char *query;
-
+    sqlite3_stmt *pStmt;
+    char *query = "UPDATE user SET profilePicture = ? WHERE username = ?";
     sqlite3 *DATABASE;
     sqlite3_open("CHATAPP.db", &DATABASE);
-    fseek(picture, 0, SEEK_END);
-    fileLength = ftell(picture);
-    fseek(picture, 0, SEEK_SET);
-    char data[fileLength + 1];
-    fileSize = fread(data, 1, fileLength, picture);
-    fclose(picture);
-
-    sqlite3_stmt *pStmt;
-    query = "UPDATE user SET profilePicture = ? WHERE username = ?";
-
     sqlite3_prepare(DATABASE, query, -1, &pStmt, 0);
-    sqlite3_bind_blob(pStmt, 1, data, fileSize, SQLITE_STATIC);
+    sqlite3_bind_blob(pStmt, 1, picture, pictureSize, SQLITE_STATIC);
     sqlite3_bind_text(pStmt, 2, username, -1, SQLITE_STATIC);
 
-    if (sqlite3_step(pStmt) != SQLITE_DONE)
-    {
-        sqlite3_close(DATABASE);
-        printf("Execution of statement failed!\n");
-        return QUERY_FAIL;
-    };
+    sqlite3_step(pStmt);
     sqlite3_finalize(pStmt);
 
     sqlite3_close(DATABASE);
@@ -675,37 +661,27 @@ bool removeFriend(char *user1, char *user2, char *token)
 }
 
 //sends message to database
-bool sendMessage(char *user1, char *user2, char *message, char *filename, FILE *file, char *token)
+bool sendMessage(char *user1, char *user2, char *token, char *message, char *filename, char *file, int fileSize)
 {
     if (!isAuthenticated(user1, token))
         return NOT_OK;
-    if (file == NULL)
+    if (fileSize > 0)
     {
-
-        fseek(file, 0, SEEK_END);
-        int fileLength = ftell(file);
-        fseek(file, 0, SEEK_SET);
-        char data[fileLength + 1];
-        int fileSize = fread(data, 1, fileLength, file);
-        fclose(file);
-
-        char *fileLink = generatePictureLink(filename);
-
+        char *fileLink = generateFileLink(filename);
         char *query = "INSERT INTO message VALUES ((SELECT id FROM user WHERE username = ?),(SELECT id FROM user WHERE username = ?),?,datetime(),?,?) ;";
-
         sqlite3 *DATABASE;
-        sqlite3_open("CHATAPP.db", &DATABASE);
         sqlite3_stmt *pStmt;
+        sqlite3_open("CHATAPP.db", &DATABASE);
         sqlite3_prepare(DATABASE, query, -1, &pStmt, 0);
         sqlite3_bind_text(pStmt, 1, user1, -1, SQLITE_STATIC);
         sqlite3_bind_text(pStmt, 2, user2, -1, SQLITE_STATIC);
-        sqlite3_bind_text(pStmt, 3, message, -1, SQLITE_STATIC);
-        sqlite3_bind_blob(pStmt, 4, data, fileSize, SQLITE_STATIC);
-        sqlite3_bind_text(pStmt, 5, fileLink, -1, SQLITE_STATIC);
+        sqlite3_bind_text(pStmt, 3, fileLink, -1, SQLITE_STATIC);
+        sqlite3_bind_blob(pStmt, 4, file, fileSize, SQLITE_STATIC);
+        sqlite3_bind_text(pStmt, 5, filename, -1, SQLITE_STATIC);
         sqlite3_step(pStmt);
         sqlite3_finalize(pStmt);
-        free(fileLink);
         sqlite3_close(DATABASE);
+        free(fileLink);
     }
     else
     {

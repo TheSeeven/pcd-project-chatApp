@@ -1,6 +1,8 @@
 
 #include <string.h>
+#include <stdlib.h>
 #include <math.h>
+#include <stdbool.h>
 
 bool isNumberOrCharacter(char *ch)
 {
@@ -12,6 +14,9 @@ bool isNumberOrCharacter(char *ch)
 int stringToInt(char string[10])
 {
     int result = 0;
+    if (string == NULL)
+        return result;
+
     int initialSize = strlen(string) - 1;
     for (int i = 0; string[i] != '\0'; i++)
         result += ((string[i] - 48) * (pow(10, initialSize--)));
@@ -72,4 +77,30 @@ char *getRequestName(char *string)
     memset(result, '\0', requestNameLength);
     strncpy(result, string, requestNameLength - 1);
     return result;
+}
+
+char *getArgumentByIndexFile(char *source, int index, int fileSize)
+{
+    char *result;
+    bool startReading = false;
+    int destCounter = 0;
+    int separators = 0;
+    for (int i = 0; source[i] != '\0'; i++)
+    {
+        destCounter++;
+        char c = source[i];
+        if (source[i] == ';')
+            startReading = true;
+        else if (source[i] == ',')
+            separators++;
+        else if (startReading && (source[i] == '\0' || source[i] == ',') && separators == index)
+            break;
+        else if (startReading && (separators == index))
+        {
+            result = (char *)malloc(fileSize);
+            for (int j = 0; j < fileSize; j++)
+                result[j] = source[j + destCounter - 1];
+            return result;
+        }
+    }
 }

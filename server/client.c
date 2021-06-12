@@ -49,19 +49,31 @@ int main(int argc, char **argv)
         printf("\nConnection Failed \n");
         return -1;
     }
-    char *t = "60:getmessageslist;ghitssierul,ghaaaaarul,tsk7EHqSs4n3JgYvwEo2";
-
-    // fgets(hello, 1024, stdin);
+    char *beginQuery = "86:sendmessage;ghitssierul,ghaaaaarul,tsk7EHqSs4n3JgYvwEo2,salut tuturor,,,";
+    char *t = (char *)malloc(89);
+    int querySize = strlen(beginQuery);
+    memset(t, '\0', 89);
+    strcpy(t, beginQuery);
+    // int fileSize;
+    // FILE *f = fopen("data.zip", "r");
+    // fseek(f, 0L, SEEK_END);
+    // fileSize = ftell(f);
+    // rewind(f);
+    // char *file = malloc(fileSize);
+    // fread(file, 1, fileSize, f);
+    // for (int i = 0; i < fileSize; i++)
+    // {
+    //     t[querySize++] = file[i];
+    // }
+    // fclose(f);
     while (1)
     {
-        send(sock, t, 63, 0);
-        read(sock, buffer, 10000);
-        printf("%s\n", buffer);
-        memset(buffer, '\0', 1024);
-        sleep(10);
+        send(sock, t, 89, 0);
+        sleep(20);
     }
-
-    // break;
-
+    printf("%s\n", buffer);
+    memset(buffer, '\0', 1024);
+    sleep(15);
+    free(t);
     return 0;
 }
