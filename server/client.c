@@ -21,10 +21,13 @@ bool isEnd(char msg[])
 
 int main(int argc, char **argv)
 {
-    int sock = 0, valread;
+    int sock, valread;
+    int server_fd;
     struct sockaddr_in serv_addr;
     char hello[1024] = {0};
-    char buffer[1024] = {0};
+    char buffer[10000] = {0};
+    int addrlen = sizeof(serv_addr);
+
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
     {
         printf("\n Socket creation error \n");
@@ -46,19 +49,19 @@ int main(int argc, char **argv)
         printf("\nConnection Failed \n");
         return -1;
     }
+    char *t = "60:getmessageslist;ghitssierul,ghaaaaarul,tsk7EHqSs4n3JgYvwEo2";
+
+    // fgets(hello, 1024, stdin);
     while (1)
     {
-        fgets(hello, 1024, stdin);
-        if (isEnd(hello))
-        {
-            printf("Disconected from the server\n");
-            close(sock);
-            break;
-        }
-        send(sock, hello, 1024, 0);
+        send(sock, t, 63, 0);
+        read(sock, buffer, 10000);
         printf("%s\n", buffer);
         memset(buffer, '\0', 1024);
+        sleep(10);
     }
+
+    // break;
 
     return 0;
 }

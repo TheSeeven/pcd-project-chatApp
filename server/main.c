@@ -1,4 +1,5 @@
 #include "dbInterface.h"
+#include "requestParser.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
@@ -12,14 +13,120 @@
 
 #define PORT 6000
 
-int stringToInt(char string[10])
+dataPack processRequest(char *string)
 {
-    int result = 0;
-    int initialSize = strlen(string) - 1;
-    for (int i = 0; string[i] != '\0'; i++)
-        result += ((string[i] - 48) * (pow(10, initialSize--)));
+    dataPack result;
+    result.msgLength = -1;
+
+    char *request = getRequestName(string);
+
+    if (strcmp(request, "getmessageslist") == 0)
+    {
+        char *username = getArgumentByIndex(string, 0);
+        char *usernameFriend = getArgumentByIndex(string, 1);
+        char *token = getArgumentByIndex(string, 2);
+        result = getMessagesList(username, usernameFriend, token);
+
+        free(username);
+        free(usernameFriend);
+        free(token);
+        free(request);
+    }
+    // else if (strcmp(request, "getnotfriendlist") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *token = getArgumentByIndex(string, 1);
+    //     result = getNotFriendList(username, token);
+
+    //     free(username);
+    //     free(token);
+    //     free(request);
+    // }
+    // else if (strcmp(request, "getfriendlist") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *token = getArgumentByIndex(string, 1);
+    //     result = getFriendList(username, token);
+
+    //     free(username);
+    //     free(token);
+    //     free(request);
+    // }
+    // else if (strcmp(request, "addfriend") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *usernameFriend = getArgumentByIndex(string, 1);
+    //     char *token = getArgumentByIndex(string, 2);
+    //     result = addFriend(username, usernameFriend, token);
+
+    //     free(username);
+    //     free(usernameFriend);
+    //     free(token);
+    //     free(request);
+    // }
+    // else if (strcmp(request, "removefriend") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *usernameFriend = getArgumentByIndex(string, 1);
+    //     char *token = getArgumentByIndex(string, 2);
+    //     result = removeFriend(username, usernameFriend, token);
+
+    //     free(username);
+    //     free(usernameFriend);
+    //     free(token);
+    //     free(request);
+    // }
+    // else if (strcmp(request, "changeprofilepicture") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *token = getArgumentByIndex(string, 1);
+
+    //     result = changeProfilePicture(username, token);
+
+    //     free(username);
+    //     free(usernameFriend);
+    //     free(token);
+    //     free(request);
+    // }
+    // else if (strcmp(request, "changeuserpassword") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *password = getArgumentByIndex(string, 1);
+    //     char *token = getArgumentByIndex(string, 2);
+    //     result = changeUserPassword(username, password, token);
+
+    //     free(username);
+    //     free(password);
+    //     free(token);
+    //     free(request);
+    // }
+    // else if (strcmp(request, "changeuseremail") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *email = getArgumentByIndex(string, 1);
+    //     char *token = getArgumentByIndex(string, 2);
+    //     result = changeUserEmail(username, email, token);
+
+    //     free(username);
+    //     free(email);
+    //     free(token);
+    //     free(request);
+    // }
+    // else if (strcmp(request, "changeuserphone") == 0)
+    // {
+    //     char *username = getArgumentByIndex(string, 0);
+    //     char *phone = getArgumentByIndex(string, 1);
+    //     char *token = getArgumentByIndex(string, 2);
+    //     result = changeUserPhone(username, phone, token);
+
+    //     free(username);
+    //     free(phone);
+    //     free(token);
+    //     free(request);
+    // }
     return result;
 }
+
 void handleClient(int *args)
 {
     int new_socket = args[0];
@@ -32,30 +139,69 @@ void handleClient(int *args)
     char headerCounter = 0;
 
     bool gotHeader = false;
+    buffer = malloc(curentMessageLength);
+    memset(buffer, '\0', curentMessageLength);
     while (1)
     {
-        buffer = malloc(curentMessageLength);
-        valread = read(new_socket, buffer, 1);
-        if (valread == ':')
+        valread = read(new_socket, buffer, curentMessageLength);
+        if (valread != 0)
         {
-            // curentMessageLength =
-        }
-        else if ((valread >= '0' && valread <= '9') && gotHeader == false)
-        {
-            header[headerCounter++] = valread;
+            if (*buffer == ':' && !gotHeader)
+            {
+                free(buffer);
+                gotHeader = true;
+                curentMessageLength = stringToInt(header);
+                buffer = malloc(curentMessageLength);
+                memset(buffer, '\0', curentMessageLength);
+            }
+            else if ((*buffer >= '0' && *buffer <= '9') && !gotHeader)
+            {
+                header[headerCounter++] = *buffer;
+                free(buffer);
+                buffer = malloc(curentMessageLength);
+                memset(buffer, '\0', curentMessageLength);
+            }
+            else if ((*buffer < '0' || *buffer > '9') && !gotHeader)
+            {
+                free(buffer);
+                break;
+            }
+            else
+            {
+                dataPack result = processRequest(buffer);
+                if (result.msgLength == -1)
+                    break;
+                send(new_socket, result.data, result.msgLength, 0);
+                free(buffer);
+                curentMessageLength = 1;
+                buffer = malloc(curentMessageLength);
+                memset(buffer, '\0', curentMessageLength);
+                gotHeader = false;
+                headerCounter = 0;
+                memset(header, 0, 10);
+            }
         }
         else
         {
-            break;
+            int error = 0;
+            socklen_t len = sizeof(error);
+            int retval = getsockopt(new_socket, SOL_SOCKET, SO_ERROR, &error, &len);
+            if (error != 0)
+            {
+                printf("Client Disconected!");
+                pthread_exit(NULL);
+            }
         }
-        free(buffer);
     }
+    free(args);
+    close(new_socket);
     printf("Client Disconected!\n");
     pthread_exit(NULL);
 }
 
 int main(int argc, char **argv)
 {
+    bool DEBUGING = false;
     // initializeDatabase();
     // dataPack t = getUser("ghitssierul", "tsk7EHqSs4n3JgYvwEo2");
     // FILE *f = fopen("test", "a+");
@@ -78,57 +224,70 @@ int main(int argc, char **argv)
     // for (int i = 0; i < t.msgLength; i++)
     //     fputc(t.data[i], f);
     // fclose(f);
+    if (!DEBUGING)
+    {
+        int server_fd, new_socket, valread;
+        struct sockaddr_in address;
+        int opt = 1;
+        int addrlen = sizeof(address);
 
-    // int server_fd, new_socket, valread;
-    // struct sockaddr_in address;
-    // int opt = 1;
-    // int addrlen = sizeof(address);
+        if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+        {
+            perror("socket failed");
+            exit(EXIT_FAILURE);
+        }
 
-    // if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
-    // {
-    //     perror("socket failed");
-    //     exit(EXIT_FAILURE);
-    // }
+        if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
+                       &opt, sizeof(opt)))
+        {
+            perror("setsockopt");
+            exit(EXIT_FAILURE);
+        }
+        address.sin_family = AF_INET;
+        address.sin_addr.s_addr = INADDR_ANY;
+        address.sin_port = htons(PORT);
 
-    // if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT,
-    //                &opt, sizeof(opt)))
-    // {
-    //     perror("setsockopt");
-    //     exit(EXIT_FAILURE);
-    // }
-    // address.sin_family = AF_INET;
-    // address.sin_addr.s_addr = INADDR_ANY;
-    // address.sin_port = htons(PORT);
+        if (bind(server_fd, (struct sockaddr *)&address,
+                 sizeof(address)) < 0)
+        {
+            perror("bind failed");
+            exit(EXIT_FAILURE);
+        }
+        if (listen(server_fd, 2000) < 0)
+        {
+            perror("listen");
+            exit(EXIT_FAILURE);
+        }
+        while (1)
+        {
+            if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
+                                     (socklen_t *)&addrlen)) < 0)
+            {
+                perror("Client connection error!");
+                continue;
+            }
+            pthread_t connection;
+            int *ThreadArgs = (int *)malloc(sizeof(int) * 2);
+            ThreadArgs[0] = new_socket;
+            ThreadArgs[1] = server_fd;
+            pthread_create(&connection, NULL, (void *)handleClient, ThreadArgs);
+        }
+        return 0;
+    }
 
-    // if (bind(server_fd, (struct sockaddr *)&address,
-    //          sizeof(address)) < 0)
-    // {
-    //     perror("bind failed");
-    //     exit(EXIT_FAILURE);
-    // }
-    // if (listen(server_fd, 2000) < 0)
-    // {
-    //     perror("listen");
-    //     exit(EXIT_FAILURE);
-    // }
-    // while (1)
-    // {
-    //     if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
-    //                              (socklen_t *)&addrlen)) < 0)
-    //     {
-    //         perror("Client connection error!");
-    //         continue;
-    //     }
-    //     pthread_t connection;
-    //     int *ThreadArgs = (int *)malloc(sizeof(int) * 2);
-    //     ThreadArgs[0] = new_socket;
-    //     ThreadArgs[1] = server_fd;
-    //     pthread_create(&connection, NULL, (void *)handleClient, ThreadArgs);
-    // }
+    // char *username;
+    // // char *usernameF;
+    // // char *token;
+    // char *request = "43:getmessageslist;ghitssierul,ghaaaaarul,tsk7EHqSs4n3JgYvwEo2";
+    // // // getMessageListArguments(request, username, usernameF, token);
 
-    // char s[10] = {0};
-    // strcpy(s, "4201");
-    // printf("%d\n", stringToInt(s));
+    dataPack t = processRequest("43:getmessageslist;ghitssierul,ghaaaaarul,tsk7EHqSs4n3JgYvwEo2");
+    // username = getRequestName(request);
+    // printf("%s", username);
+    FILE *f = fopen("test", "a+");
+    for (int i = 0; i < t.msgLength; i++)
+        fputc(t.data[i], f);
+    fclose(f);
     return 0;
 }
 

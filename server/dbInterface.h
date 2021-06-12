@@ -439,6 +439,7 @@ dataPack serializeDataMessage(sqlite3_stmt *data)
     return result;
 }
 
+//generates a string for picturelink
 char *generatePictureLink(char *filename)
 {
     char *result = malloc(11 + strlen(filename));
@@ -570,7 +571,7 @@ bool insertUser(char *username, char *email, char *phone, char *password)
 
 // updates the profile picture of a user return 'true' for success, 'false' for fail
 // NOTE: THE SECOND PARAMETER WILL BE CHANGED LATER TO A DIFERENT TYPE
-bool updateProfilePicture(char *username, char *token, FILE *picture)
+bool changeProfilePicture(char *username, char *token, FILE *picture)
 {
     if (!isAuthenticated(username, token))
         return QUERY_FAIL;
@@ -673,6 +674,7 @@ bool removeFriend(char *user1, char *user2, char *token)
     return QUERY_SUCCESS;
 }
 
+//sends message to database
 bool sendMessage(char *user1, char *user2, char *message, char *filename, FILE *file, char *token)
 {
     if (!isAuthenticated(user1, token))
@@ -699,7 +701,7 @@ bool sendMessage(char *user1, char *user2, char *message, char *filename, FILE *
         sqlite3_bind_text(pStmt, 2, user2, -1, SQLITE_STATIC);
         sqlite3_bind_text(pStmt, 3, message, -1, SQLITE_STATIC);
         sqlite3_bind_blob(pStmt, 4, data, fileSize, SQLITE_STATIC);
-        sqlite3_bind_text(pStmt, 5, filename, -1, SQLITE_STATIC);
+        sqlite3_bind_text(pStmt, 5, fileLink, -1, SQLITE_STATIC);
         sqlite3_step(pStmt);
         sqlite3_finalize(pStmt);
         free(fileLink);
@@ -847,7 +849,7 @@ dataPack getFile(char *username, char *pictureLink, char *token)
     sqlite3_stmt *dbResult;
     const char *tail;
 
-    char *query = sqlite3_mprintf("SELECT picture FROM message WHERE message ='%q' AND (expeditor = (SELECT user.id FROM user WHERE username = '%q') OR receiver = (SELECT user.id FROM user WHERE username = '%q')) ;", pictureLink, username, username);
+    char *query = sqlite3_mprintf("SELECT file FROM message WHERE filename ='%q' AND (expeditor = (SELECT user.id FROM user WHERE username = '%q') OR receiver = (SELECT user.id FROM user WHERE username = '%q')) ;", pictureLink, username, username);
     sqlite3_open("CHATAPP.db", &DATABASE);
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
 
@@ -864,6 +866,7 @@ dataPack getFile(char *username, char *pictureLink, char *token)
     return result;
 }
 
+//get all users that are not friends with a specific user
 dataPack getNotFriendList(char *username, char *token)
 {
     dataPack result;
@@ -884,7 +887,7 @@ dataPack getNotFriendList(char *username, char *token)
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
     while (sqlite3_step(dbResult) == SQLITE_ROW)
     {
-        databaseObjectsSerialized[dbObjCounter] = serializeDataFriend(dbResult);
+        databaseObjectsSerialized[dbObjCounter] = serializeDataNotFriend(dbResult);
         dbObjCounter++;
     }
     sqlite3_close(DATABASE);
