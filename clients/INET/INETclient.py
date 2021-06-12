@@ -2,6 +2,7 @@ import socket	#for sockets
 import sys	#for exit
 from tkinter import *
 import tkinter
+import tkinter.scrolledtext as st
 
 
 class ClientInterface:
@@ -18,10 +19,13 @@ class ClientInterface:
 		# Variables that are assiged values after server checks #######
 
 		self.loginFailed = False ## Used only for testing purposes! This variable should be set to True or False depending on the Server Checking of the user credentials!
+		self.currentUser = StringVar()
+		self.currentUser.set('Mile')
+		
 		self.SelectedUser = StringVar()
 		self.SelectedUser.set('')
-		self.currentUser = StringVar()
-		self.currentUser.set('Nobody')
+		self.otherUser = StringVar()
+		self.otherUser.set('Nobody')
 		self.messageToBeSent=StringVar()
 		self.messageToBeSent.set('')
 
@@ -71,18 +75,20 @@ class ClientInterface:
 			fullList= list(self.friendsList.get(0,END))
 			print(check)
 			if check in fullList:
-				self.currentUser.set(str(check))
+				self.otherUser.set(str(check))
 			else:
-				self.currentUser.set('Nobody')
+				self.otherUser.set('Nobody')
 			#TODO Add verification / send info to server / DB
 
 		def SendText():
-			textToSend=self.messageEntryBox.get()
-			self.messageToBeSent.set(textToSend)
-			print("Message is: ")
-			print(textToSend)
-			
-			#TODO apel cu mesaj catre >>> self.currentUser <<<
+			if(self.otherUser != 'Nobody'):
+				textToSend=self.messageEntryBox.get()
+				self.messageToBeSent=str(self.currentUser.get())+': '+str(textToSend)+'\n'
+				self.messageHistory.configure(state='normal')
+				self.messageHistory.insert(END, self.messageToBeSent)
+				self.messageHistory.update_idletasks()
+				self.messageHistory.configure(state='disabled')
+			#TODO apel cu mesaj catre >>> self.otherUser <<<
 
 		def AddImage():
 			#TODO open file browser and send image as bytes
@@ -94,8 +100,11 @@ class ClientInterface:
 			# Setting up new interface parameters
 			self.interface.resizable(0,0)
 			self.interface.geometry("720x720")
+			self.interface.configure(background="gray10")
+			self.interface.title("<<< Chat App >>>")
+
 			self.listsframe = Frame(self.interface)
-			self.listsframe.configure(background="black")
+			self.listsframe.configure(background="gray10")
 			for i in range(0,3):
 				self.listsframe.grid_columnconfigure(i, weight=1)
 			for j in range(0,3):
@@ -103,16 +112,15 @@ class ClientInterface:
 			self.listsframe.grid(row=1, column=1)
 
 			# User currently talking to
-			self.curUserLabel = Label(self.interface, textvariable=self.currentUser, bg="black", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=S)
-			self.talkingToLabel = Label(self.interface, text="Currently talking to: ", bg="black", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=SW)
+			self.curUserLabel = Label(self.interface, textvariable=self.otherUser, bg="gray10", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=S)
+			self.talkingToLabel = Label(self.interface, text="Currently talking to: ", bg="gray10", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=SW)
 
 			# Message History Text box
-			self.messageHistoryScroller = Scrollbar(self.interface)
-			self.messageHistory = Listbox(self.interface, yscrollcommand=self.messageHistoryScroller.set, width=40, height=25, background="white" ) # TODO add function to save each message that is sent by client and received from the other client!
+			self.messageHistory = st.ScrolledText(self.interface, width=40, height=25 ) # TODO add function to save each message that is sent by client and received from the other client!
 			self.messageHistory.grid(row=1, column=0)
 
 			# List of Connected Users # TODO Function to get currently connected users or all users
-			self.connectedUsersListLabel = Label(self.listsframe, text="Currently Connected Users", bg="black", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=0)
+			self.connectedUsersListLabel = Label(self.listsframe, text="Currently Connected Users", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=0)
 			self.cUsersScroll = Scrollbar(self.listsframe)
 			self.connectedUsers = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll.set, width= 15, height=15, selectmode=SINGLE)
 			self.cUsersScroll.config(command = self.connectedUsers.yview)
@@ -122,7 +130,7 @@ class ClientInterface:
 			self.connectedUsers.grid(row=1, column=0)
 			
 			# List of Friends # TODO Function to get friends + Add Friend (Probs will use button) + Remove Friend (Probs will use button)
-			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="black", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
+			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
 			self.friendsListScroll = Scrollbar(self.listsframe)
 			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll, width= 15, height=15, selectmode=SINGLE)
 			self.friendsList.insert(END, "Gicu")
@@ -154,7 +162,7 @@ class ClientInterface:
 
 			# Send Message and Send Image Buttons Frame creation
 			self.buttonsFrame = Frame(self.interface)
-			self.buttonsFrame.configure(background="black")
+			self.buttonsFrame.configure(background="gray10")
 			for i in range(0,3):
 				self.buttonsFrame.grid_columnconfigure(i, weight=1)
 			for j in range(0,3):
@@ -169,6 +177,7 @@ class ClientInterface:
 			self.addImage = Button(self.buttonsFrame, width=1, height=1, text="Img", command=AddImage) # TODO Add Funtion Command!
 			self.addImage.grid(row=1, column=0)
 
+			self.messageHistory.configure(state='disabled')
 			# Exit/Logout
 			# TODO>>
 
@@ -207,6 +216,7 @@ class ClientInterface:
 		self.failMessage.grid(row=2, column=1, sticky="nsew")
 		self.failMessage.grid_remove()
 
+	
 		self.interface.mainloop()
 
 GUI = ClientInterface()
