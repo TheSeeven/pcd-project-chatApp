@@ -1,6 +1,7 @@
 {
     "files.associations": {
-        "typeinfo": "cpp"
+        "typeinfo": "cpp",
+        "cstdlib": "c"
     },
     "python.pythonPath": "/usr/bin/python3"
 }

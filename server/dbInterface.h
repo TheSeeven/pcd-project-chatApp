@@ -56,6 +56,16 @@ void generateToken(char *token)
     }
 }
 
+//generates a random string for pictureLink
+void generateRandomString(char *dest, int from)
+{
+    srand(time(NULL));
+    for (int i = from; i < strlen(dest); i++)
+    {
+        dest[i] = charset[rand() % 61];
+    }
+}
+
 // checks if password is adequate for security reasons
 bool isGoodPassword(char *password)
 {
@@ -148,7 +158,7 @@ bool verifyLength(char *data, unsigned int fileSize)
 }
 
 //verify if token belongs to a specific user
-bool verifyAuthToken(char *username, char *authToken)
+bool isAuthenticated(char *username, char *authToken)
 {
     int valid = -1;
     sqlite3 *DATABASE;
@@ -202,6 +212,7 @@ struct dataPack
     char *data;
 };
 
+//seialize frinds data
 dataPack serializeDataFriend(sqlite3_stmt *data)
 {
     dataPack result;
@@ -287,6 +298,7 @@ dataPack serializeDataFriend(sqlite3_stmt *data)
     return result;
 }
 
+//
 dataPack prepareResultFriend(dataPack data[])
 {
     dataPack result;
@@ -296,7 +308,7 @@ dataPack prepareResultFriend(dataPack data[])
     {
         finalLength += data[i].msgLength;
     }
-    result.data = malloc(finalLength);
+    result.data = (char *)malloc(finalLength);
     for (int i = 0; data[i].msgLength != 0; i++)
     {
         for (int j = 0; j < data[i].msgLength; j++)
@@ -309,231 +321,7 @@ dataPack prepareResultFriend(dataPack data[])
     return result;
 }
 
-// internal functions
-//
-//
-//
-
-// ------------------------------------------------------------------------------
-
-//
-//
-//
-// public functions
-
-// creates the database and the tables required
-void initializeDatabase()
-{
-    printf("Creating database...\n");
-    char *createUser = "CREATE TABLE user (id integer PRIMARY KEY AUTOINCREMENT,username TEXT UNIQUE NOT NULL, email TEXT UNIQUE NOT NULL,phone TEXT UNIQUE NOT NULL, password TEXT NOT NULL,profilePicture BLOB);";
-    char *createAuth = "CREATE TABLE auth (user_id integer NOT NULL,token TEXT UNIQUE NOT NULL, date datetime NOT NULL,FOREIGN KEY(user_id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
-    char *createFriends = "CREATE TABLE friends (id integer NOT NULL,friend_id integer NOT NULL, date datetime NOT NULL, FOREIGN KEY (id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE,FOREIGN KEY (friend_id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
-    char *createMessage = "CREATE TABLE message (expeditor integer NOT NULL,receiver integer NOT NULL, message TEXT,date datetime NOT NULL, picture BLOB,FOREIGN KEY (expeditor) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE,FOREIGN KEY (receiver) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
-    executeQuery(createUser);
-    executeQuery(createAuth);
-    executeQuery(createFriends);
-    executeQuery(createMessage);
-    printf("Tables created succesfully! \n");
-}
-
-// inserts a user into the databse, return 'true' for succes, 'false' for fail
-bool insertUser(char *username, char *email, char *phone, char *password)
-{
-    if (verifyLength(username, 50))
-        return QUERY_FAIL;
-    else if (verifyLength(email, 100))
-        return QUERY_FAIL;
-    else if (verifyLength(phone, 15))
-        return QUERY_FAIL;
-    else if (verifyLength(password, 500))
-        return QUERY_FAIL;
-    else if (isGoodPassword(password))
-        return QUERY_FAIL;
-    if (isGoodEmail(email) && isGoodPassword(password) && isGoodUsername(username) && isPhoneNumber(phone))
-    {
-        char *query = sqlite3_mprintf("INSERT INTO user(username,email,phone,password) VALUES('%q','%q','%q','%q');", username, email, phone, password);
-        executeQuery(query);
-        return QUERY_SUCCESS;
-    }
-    return QUERY_FAIL;
-}
-
-// updates the profile picture of a user return 'true' for success, 'false' for fail
-// NOTE: THE SECOND PARAMETER WILL BE CHANGED LATER TO A DIFERENT TYPE
-bool updateProfilePicture(char *username, FILE *picture)
-{
-    int fileLength;
-    int fileSize;
-    char *query;
-
-    sqlite3 *DATABASE;
-    sqlite3_open("CHATAPP.db", &DATABASE);
-    fseek(picture, 0, SEEK_END);
-    fileLength = ftell(picture);
-    fseek(picture, 0, SEEK_SET);
-    char data[fileLength + 1];
-    fileSize = fread(data, 1, fileLength, picture);
-    fclose(picture);
-
-    sqlite3_stmt *pStmt;
-    query = "UPDATE user SET profilePicture = ? WHERE username = ?";
-
-    sqlite3_prepare(DATABASE, query, -1, &pStmt, 0);
-    sqlite3_bind_blob(pStmt, 1, data, fileSize, SQLITE_STATIC);
-    sqlite3_bind_text(pStmt, 2, username, -1, SQLITE_STATIC);
-
-    if (sqlite3_step(pStmt) != SQLITE_DONE)
-    {
-        sqlite3_close(DATABASE);
-        printf("Execution of statement failed!\n");
-        return QUERY_FAIL;
-    };
-    sqlite3_finalize(pStmt);
-
-    sqlite3_close(DATABASE);
-    return QUERY_SUCCESS;
-}
-
-// changes the password of the user
-bool changeUserPassword(char *username, char *newPassword)
-{
-    if (!isGoodPassword(newPassword))
-        return QUERY_FAIL;
-    char *query = sqlite3_mprintf("UPDATE user SET password = '%q' WHERE username = '%q';", newPassword, username);
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-// changes the email of the user
-bool changeUserEmail(char *username, char *newEmail)
-{
-    if (!isGoodEmail(newEmail))
-        return QUERY_FAIL;
-    char *query = sqlite3_mprintf("UPDATE user SET email = '%q' WHERE username = '%q';", newEmail, username);
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-// changes the phone of the user
-bool changeUserPhone(char *username, char *newPhone)
-{
-    if (!isPhoneNumber(newPhone))
-        return QUERY_FAIL;
-    char *query = sqlite3_mprintf("UPDATE user SET phone = '%q' WHERE username = '%q';", newPhone, username);
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-//removes a user from the table
-bool removeUser(char *username)
-{
-    char *query = sqlite3_mprintf("DELETE FROM user WHERE username = '%q';", username);
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-//add a friend in friendlist
-bool addFriend(char *user1, char *user2)
-{
-
-    char *query = sqlite3_mprintf("INSERT INTO friends(id, friend_id, date) VALUES((SELECT id FROM user where username = '%q'),(SELECT id FROM user where username = '%q'),(datetime()));", user1, user2);
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-//remove a friend in friendlist
-bool removeFriend(char *user1, char *user2)
-{
-    char *query = sqlite3_mprintf("DELETE FROM friends WHERE id = (SELECT id FROM user WHERE username = '%q') AND friend_id = (SELECT id FROM user where username = '%q');", user1, user2);
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-bool insertMessage(char *user1, char *user2, char *message, int messageLength, FILE *file)
-{
-    if (file == NULL)
-    {
-    }
-    else
-    {
-    }
-    return QUERY_SUCCESS;
-}
-
-//inserts a new authentification in Auth table
-bool loginUser(char *username, char *password)
-{
-    sqlite3_stmt *result;
-    const char *tail;
-    sqlite3 *DATABASE;
-    int foundId = -1;
-    char *query = sqlite3_mprintf("SELECT id FROM user WHERE username='%q' AND password='%q';", username, password);
-    sqlite3_open("CHATAPP.db", &DATABASE);
-    sqlite3_prepare_v2(DATABASE, query, -1, &result, &tail);
-    while (sqlite3_step(result) == SQLITE_ROW)
-    {
-        foundId = sqlite3_column_int(result, 0);
-    }
-    sqlite3_finalize(result);
-    sqlite3_close(DATABASE);
-    if (foundId != -1)
-    {
-        char token[21] = {0};
-        generateAuthToken(token);
-        query = sqlite3_mprintf("INSERT INTO auth values(%d,'%q',(datetime()));", foundId, token);
-        executeQuery(query);
-        return QUERY_SUCCESS;
-    }
-    return QUERY_FAIL;
-}
-
-//deletes a authentification on disconnect
-bool logoutUser(char *username, char *token)
-{
-    char *query = sqlite3_mprintf("DELETE FROM auth WHERE user_id=(SELECT id FROM user where username='%q') AND token='%q';", username, token);
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-//deletes a authentification that is older than 24 hours
-bool deleteOldToken()
-{
-    char *query = "DELETE FROM 'auth' where 86400 < strftime('%s','now') - strftime('%s',date)";
-    executeQuery(query);
-    return QUERY_SUCCESS;
-}
-
-//
-
-// gets the list of friends and their data for a specific user
-dataPack getFriendList(char *username, char *token)
-{
-    dataPack result;
-    result.msgLength = -1;
-    if (!verifyAuthToken(username, token))
-    {
-        return result;
-    }
-    sqlite3 *DATABASE;
-    sqlite3_stmt *dbResult;
-    const char *tail;
-
-    dataPack databaseObjectsSerialized[100] = {0};
-    int dbObjCounter = 0;
-
-    char *query = sqlite3_mprintf("Select user.username, user.email, user.phone, user.profilePicture, friends.date from friends INNER JOIN user on friends.friend_id= user.id where friends.id=(SELECT user.id FROM user WHERE username = '%q' );", username);
-    sqlite3_open("CHATAPP.db", &DATABASE);
-    sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
-    while (sqlite3_step(dbResult) == SQLITE_ROW)
-    {
-        databaseObjectsSerialized[dbObjCounter] = serializeDataFriend(dbResult);
-        dbObjCounter++;
-    }
-    sqlite3_close(DATABASE);
-    result = prepareResultFriend(databaseObjectsSerialized);
-    return result;
-}
-
+//serialize user data
 dataPack serializeDataUsername(sqlite3_stmt *data)
 {
     dataPack result;
@@ -594,11 +382,415 @@ dataPack serializeDataUsername(sqlite3_stmt *data)
     return result;
 }
 
+//serialize the message data
+dataPack serializeDataMessage(sqlite3_stmt *data)
+{
+    dataPack result;
+    char *username = (char *)sqlite3_column_text(data, 0);
+    char *message = (char *)sqlite3_column_text(data, 1);
+    char *date = (char *)sqlite3_column_text(data, 2);
+
+    int usernameLength = strlen(username);
+    int messageLength = strlen(message);
+    int dateLength = strlen(date);
+
+    char usernameLengthChar[10] = {0};
+    char messageLengthChar[10] = {0};
+    char dateLengthChar[10] = {0};
+
+    intToString(usernameLength, usernameLengthChar);
+    intToString(messageLength, messageLengthChar);
+    intToString(dateLength, dateLengthChar);
+
+    char *bytesResult = (char *)malloc(numberOfDigits(usernameLength) +
+                                       numberOfDigits(messageLength) +
+                                       numberOfDigits(dateLength) +
+                                       usernameLength +
+                                       messageLength +
+                                       dateLength + 3);
+
+    int cursorIndex = 0;
+
+    for (int i = 0; usernameLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = usernameLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+    for (int i = 0; messageLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = messageLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+    for (int i = 0; dateLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = dateLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; i < usernameLength; i++)
+        bytesResult[cursorIndex++] = username[i];
+    for (int i = 0; i < messageLength; i++)
+        bytesResult[cursorIndex++] = message[i];
+    for (int i = 0; i < dateLength; i++)
+        bytesResult[cursorIndex++] = date[i];
+    int msgLength = numberOfDigits(usernameLength) +
+                    numberOfDigits(dateLength) +
+                    numberOfDigits(messageLength) +
+                    usernameLength +
+                    dateLength +
+                    messageLength + 3;
+
+    result.data = bytesResult;
+    result.msgLength = msgLength;
+    return result;
+}
+
+char *generatePictureLink(char *filename)
+{
+    char *result = malloc(11 + strlen(filename));
+    strcpy(result, filename);
+    result[strlen(filename) + 1] = '/';
+    generateRandomString(result, strlen(filename) + 2);
+    return result;
+}
+
+//seialize frinds data
+dataPack serializeDataNotFriend(sqlite3_stmt *data)
+{
+    dataPack result;
+    char *username = (char *)sqlite3_column_text(data, 0);
+    char *email = (char *)sqlite3_column_text(data, 1);
+    char *phone = (char *)sqlite3_column_text(data, 2);
+    char *profilePicture = (char *)sqlite3_column_blob(data, 3);
+
+    int usernameLength = strlen(username);
+    int emailLength = strlen(email);
+    int phoneLength = strlen(phone);
+    int profilePictureLength = sqlite3_column_bytes(data, 3);
+
+    char usernameLengthChar[10] = {0};
+    char emailLengthChar[10] = {0};
+    char phoneLengthChar[10] = {0};
+    char profilePictureLengthChar[10] = {0};
+    intToString(usernameLength, usernameLengthChar);
+    intToString(emailLength, emailLengthChar);
+    intToString(phoneLength, phoneLengthChar);
+    intToString(profilePictureLength, profilePictureLengthChar);
+
+    char *bytesResult = (char *)malloc(numberOfDigits(usernameLength) +
+                                       numberOfDigits(emailLength) +
+                                       numberOfDigits(phoneLength) +
+                                       numberOfDigits(profilePictureLength) +
+                                       usernameLength +
+                                       emailLength +
+                                       phoneLength +
+                                       profilePictureLength + 5);
+
+    int cursorIndex = 0;
+
+    for (int i = 0; usernameLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = usernameLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; emailLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = emailLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; phoneLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = phoneLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; profilePictureLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = profilePictureLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; i < usernameLength; i++)
+        bytesResult[cursorIndex++] = username[i];
+    for (int i = 0; i < emailLength; i++)
+        bytesResult[cursorIndex++] = email[i];
+    for (int i = 0; i < phoneLength; i++)
+        bytesResult[cursorIndex++] = phone[i];
+    for (int i = 0; i < profilePictureLength; i++)
+        bytesResult[cursorIndex++] = profilePicture[i];
+    int msgLength = numberOfDigits(usernameLength) +
+                    numberOfDigits(emailLength) +
+                    numberOfDigits(phoneLength) +
+                    numberOfDigits(profilePictureLength) +
+                    usernameLength +
+                    emailLength +
+                    phoneLength +
+                    profilePictureLength + 5;
+
+    result.data = bytesResult;
+    result.msgLength = msgLength;
+    return result;
+}
+// internal functions
+//
+//
+//
+
+// ------------------------------------------------------------------------------
+
+//
+//
+//
+// public functions
+
+// creates the database and the tables required
+void initializeDatabase()
+{
+    printf("Creating database...\n");
+    char *createUser = "CREATE TABLE user (id integer, username TEXT NOT NULL UNIQUE, email TEXT NOT NULL UNIQUE, phone TEXT NOT NULL UNIQUE, password TEXT NOT NULL, profilePicture BLOB DEFAULT null,PRIMARY KEY(id AUTOINCREMENT));";
+    char *createAuth = "CREATE TABLE auth (user_id integer NOT NULL,token TEXT UNIQUE NOT NULL, date datetime NOT NULL,FOREIGN KEY(user_id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
+    char *createFriends = "CREATE TABLE friends (id integer NOT NULL,friend_id integer NOT NULL, date datetime NOT NULL, FOREIGN KEY (id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE,FOREIGN KEY (friend_id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
+    char *createMessage = "CREATE TABLE message (expeditor integer NOT NULL, receiver integer NOT NULL,message TEXT NOT NULL, date datetime NOT NULL, file BLOB DEFAULT null,filename TEXT DEFAULT null,FOREIGN KEY(expeditor) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE,FOREIGN KEY(receiver) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
+    executeQuery(createUser);
+    executeQuery(createAuth);
+    executeQuery(createFriends);
+    executeQuery(createMessage);
+    printf("Tables created succesfully! \n");
+}
+
+// inserts a user into the databse, return 'true' for succes, 'false' for fail
+bool insertUser(char *username, char *email, char *phone, char *password)
+{
+    if (verifyLength(username, 50))
+        return QUERY_FAIL;
+    else if (verifyLength(email, 100))
+        return QUERY_FAIL;
+    else if (verifyLength(phone, 15))
+        return QUERY_FAIL;
+    else if (verifyLength(password, 500))
+        return QUERY_FAIL;
+    else if (isGoodPassword(password))
+        return QUERY_FAIL;
+    if (isGoodEmail(email) && isGoodPassword(password) && isGoodUsername(username) && isPhoneNumber(phone))
+    {
+        char *query = sqlite3_mprintf("INSERT INTO user(username,email,phone,password) VALUES('%q','%q','%q','%q');", username, email, phone, password);
+        executeQuery(query);
+        return QUERY_SUCCESS;
+    }
+    return QUERY_FAIL;
+}
+
+// updates the profile picture of a user return 'true' for success, 'false' for fail
+// NOTE: THE SECOND PARAMETER WILL BE CHANGED LATER TO A DIFERENT TYPE
+bool updateProfilePicture(char *username, char *token, FILE *picture)
+{
+    if (!isAuthenticated(username, token))
+        return QUERY_FAIL;
+
+    int fileLength;
+    int fileSize;
+    char *query;
+
+    sqlite3 *DATABASE;
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    fseek(picture, 0, SEEK_END);
+    fileLength = ftell(picture);
+    fseek(picture, 0, SEEK_SET);
+    char data[fileLength + 1];
+    fileSize = fread(data, 1, fileLength, picture);
+    fclose(picture);
+
+    sqlite3_stmt *pStmt;
+    query = "UPDATE user SET profilePicture = ? WHERE username = ?";
+
+    sqlite3_prepare(DATABASE, query, -1, &pStmt, 0);
+    sqlite3_bind_blob(pStmt, 1, data, fileSize, SQLITE_STATIC);
+    sqlite3_bind_text(pStmt, 2, username, -1, SQLITE_STATIC);
+
+    if (sqlite3_step(pStmt) != SQLITE_DONE)
+    {
+        sqlite3_close(DATABASE);
+        printf("Execution of statement failed!\n");
+        return QUERY_FAIL;
+    };
+    sqlite3_finalize(pStmt);
+
+    sqlite3_close(DATABASE);
+    return QUERY_SUCCESS;
+}
+
+// changes the password of the user
+bool changeUserPassword(char *username, char *newPassword, char *token)
+{
+    if (!isAuthenticated(username, token))
+        return QUERY_FAIL;
+    if (!isGoodPassword(newPassword))
+        return QUERY_FAIL;
+    char *query = sqlite3_mprintf("UPDATE user SET password = '%q' WHERE username = '%q';", newPassword, username);
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+// changes the email of the user
+bool changeUserEmail(char *username, char *newEmail, char *token)
+{
+    if (!isAuthenticated(username, token))
+        return QUERY_FAIL;
+    if (!isGoodEmail(newEmail))
+        return QUERY_FAIL;
+    char *query = sqlite3_mprintf("UPDATE user SET email = '%q' WHERE username = '%q';", newEmail, username);
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+// changes the phone of the user
+bool changeUserPhone(char *username, char *newPhone, char *token)
+{
+    if (!isAuthenticated(username, token))
+        return QUERY_FAIL;
+    if (!isPhoneNumber(newPhone))
+        return QUERY_FAIL;
+    char *query = sqlite3_mprintf("UPDATE user SET phone = '%q' WHERE username = '%q';", newPhone, username);
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+//removes a user from the table
+bool removeUser(char *username, char *token)
+{
+    if (!isAuthenticated(username, token))
+        return QUERY_FAIL;
+    char *query = sqlite3_mprintf("DELETE FROM user WHERE username = '%q';", username);
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+//add a friend in friendlist
+bool addFriend(char *user1, char *user2, char *token)
+{
+    if (!isAuthenticated(user1, token))
+        return QUERY_FAIL;
+    char *query = sqlite3_mprintf("INSERT INTO friends(id, friend_id, date) VALUES((SELECT id FROM user where username = '%q'),(SELECT id FROM user where username = '%q'),(datetime()));", user1, user2);
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+//remove a friend in friendlist
+bool removeFriend(char *user1, char *user2, char *token)
+{
+    if (!isAuthenticated(user1, token))
+        return QUERY_FAIL;
+    char *query = sqlite3_mprintf("DELETE FROM friends WHERE id = (SELECT id FROM user WHERE username = '%q') AND friend_id = (SELECT id FROM user where username = '%q');", user1, user2);
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+bool sendMessage(char *user1, char *user2, char *message, char *filename, FILE *file, char *token)
+{
+    if (!isAuthenticated(user1, token))
+        return NOT_OK;
+    if (file == NULL)
+    {
+
+        fseek(file, 0, SEEK_END);
+        int fileLength = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        char data[fileLength + 1];
+        int fileSize = fread(data, 1, fileLength, file);
+        fclose(file);
+
+        char *fileLink = generatePictureLink(filename);
+
+        char *query = "INSERT INTO message VALUES ((SELECT id FROM user WHERE username = ?),(SELECT id FROM user WHERE username = ?),?,datetime(),?,?) ;";
+
+        sqlite3 *DATABASE;
+        sqlite3_open("CHATAPP.db", &DATABASE);
+        sqlite3_stmt *pStmt;
+        sqlite3_prepare(DATABASE, query, -1, &pStmt, 0);
+        sqlite3_bind_text(pStmt, 1, user1, -1, SQLITE_STATIC);
+        sqlite3_bind_text(pStmt, 2, user2, -1, SQLITE_STATIC);
+        sqlite3_bind_text(pStmt, 3, message, -1, SQLITE_STATIC);
+        sqlite3_bind_blob(pStmt, 4, data, fileSize, SQLITE_STATIC);
+        sqlite3_bind_text(pStmt, 5, filename, -1, SQLITE_STATIC);
+        sqlite3_step(pStmt);
+        sqlite3_finalize(pStmt);
+        free(fileLink);
+        sqlite3_close(DATABASE);
+    }
+    else
+    {
+        char *query = sqlite3_mprintf("INSERT INTO message(expeditor,receiver,message, date) VALUES ((SELECT id FROM user WHERE username = '%q'),(SELECT id FROM user WHERE username = '%q'),'%q',datetime()) ;", user1, user2, message);
+        executeQuery(query);
+    }
+    return QUERY_SUCCESS;
+}
+
+//inserts a new authentification in Auth table
+bool loginUser(char *username, char *password)
+{
+    sqlite3_stmt *result;
+    const char *tail;
+    sqlite3 *DATABASE;
+    int foundId = -1;
+    char *query = sqlite3_mprintf("SELECT id FROM user WHERE username='%q' AND password='%q';", username, password);
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    sqlite3_prepare_v2(DATABASE, query, -1, &result, &tail);
+    while (sqlite3_step(result) == SQLITE_ROW)
+    {
+        foundId = sqlite3_column_int(result, 0);
+    }
+    sqlite3_finalize(result);
+    sqlite3_close(DATABASE);
+    if (foundId != -1)
+    {
+        char token[21] = {0};
+        generateAuthToken(token);
+        query = sqlite3_mprintf("INSERT INTO auth values(%d,'%q',(datetime()));", foundId, token);
+        executeQuery(query);
+        return QUERY_SUCCESS;
+    }
+    return QUERY_FAIL;
+}
+
+//deletes a authentification on disconnect
+bool logoutUser(char *username, char *token)
+{
+    char *query = sqlite3_mprintf("DELETE FROM auth WHERE user_id=(SELECT id FROM user where username='%q') AND token='%q';", username, token);
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+//deletes a authentification that is older than 24 hours
+bool deleteOldToken()
+{
+    char *query = "DELETE FROM 'auth' where 86400 < strftime('%s','now') - strftime('%s',date)";
+    executeQuery(query);
+    return QUERY_SUCCESS;
+}
+
+// gets the list of friends and their data for a specific user
+dataPack getFriendList(char *username, char *token)
+{
+    dataPack result;
+    result.msgLength = -1;
+    if (!isAuthenticated(username, token))
+    {
+        return result;
+    }
+    sqlite3 *DATABASE;
+    sqlite3_stmt *dbResult;
+    const char *tail;
+
+    dataPack databaseObjectsSerialized[100] = {0};
+    int dbObjCounter = 0;
+
+    char *query = sqlite3_mprintf("Select user.username, user.email, user.phone, user.profilePicture, friends.date from friends INNER JOIN user on friends.friend_id= user.id where friends.id=(SELECT user.id FROM user WHERE username = '%q' );", username);
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
+    while (sqlite3_step(dbResult) == SQLITE_ROW)
+    {
+        databaseObjectsSerialized[dbObjCounter] = serializeDataFriend(dbResult);
+        dbObjCounter++;
+    }
+    sqlite3_close(DATABASE);
+    result = prepareResultFriend(databaseObjectsSerialized);
+    return result;
+}
+
+//get user data from table
 dataPack getUser(char *username, char *token)
 {
     dataPack result;
     result.msgLength = -1;
-    if (!verifyAuthToken(username, token))
+    if (!isAuthenticated(username, token))
     {
         return result;
     }
@@ -617,75 +809,14 @@ dataPack getUser(char *username, char *token)
     return result;
 }
 
-dataPack serializeDataMessage(sqlite3_stmt *data)
-{
-
-    dataPack result;
-
-    char * = (char *)sqlite3_column_text(data, 0);
-    char *phone = (char *)sqlite3_column_text(data, 1);
-    char *profilePicture = (char *)sqlite3_column_blob(data, 2);
-
-    int emailLength = strlen(email);
-    int phoneLength = strlen(phone);
-    int profilePictureLength = sqlite3_column_bytes(data, 2);
-
-    char emailLengthChar[10] = {0};
-    char phoneLengthChar[10] = {0};
-    char profilePictureLengthChar[10] = {0};
-
-    intToString(emailLength, emailLengthChar);
-    intToString(phoneLength, phoneLengthChar);
-    intToString(profilePictureLength, profilePictureLengthChar);
-
-    char *bytesResult = (char *)malloc(numberOfDigits(emailLength) +
-                                       numberOfDigits(phoneLength) +
-                                       numberOfDigits(profilePictureLength) +
-                                       emailLength +
-                                       phoneLength +
-                                       profilePictureLength +
-                                       3);
-
-    int cursorIndex = 0;
-
-    for (int i = 0; emailLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = emailLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
-
-    for (int i = 0; phoneLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = phoneLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
-
-    for (int i = 0; profilePictureLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = profilePictureLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
-
-    for (int i = 0; i < emailLength; i++)
-        bytesResult[cursorIndex++] = email[i];
-    for (int i = 0; i < phoneLength; i++)
-        bytesResult[cursorIndex++] = phone[i];
-    for (int i = 0; i < profilePictureLength; i++)
-        bytesResult[cursorIndex++] = profilePicture[i];
-    int msgLength = numberOfDigits(emailLength) +
-                    numberOfDigits(phoneLength) +
-                    numberOfDigits(profilePictureLength) +
-                    emailLength +
-                    phoneLength +
-                    profilePictureLength + 5;
-
-    result.data = bytesResult;
-    result.msgLength = msgLength;
-    return result;
-}
-
-dataPack getMessagesList(char *username, char *friend, char *token)
+//get the list of messages between 2 clients (last 1000)
+dataPack getMessagesList(char *username, char *friendUsername, char *token)
 {
     dataPack result;
     result.msgLength = -1;
-    if (!verifyAuthToken(username, token))
-    {
+    if (!isAuthenticated(username, token))
         return result;
-    }
+
     sqlite3 *DATABASE;
     sqlite3_stmt *dbResult;
     const char *tail;
@@ -693,19 +824,73 @@ dataPack getMessagesList(char *username, char *friend, char *token)
     dataPack databaseObjectsSerialized[1000] = {0};
     int dbObjCounter = 0;
 
-    char *query = sqlite3_mprintf("SELECT username,message, date, picture from message inner join user on user.id=expeditor WHERE (expeditor=(SELECT user.id FROM user WHERE username = 'ghitssierul') AND receiver=(SELECT user.id FROM user WHERE username = 'ghaaaaarul' )) OR  (expeditor=(SELECT user.id FROM user WHERE username = 'ghaaaaarul' ) AND receiver=(SELECT user.id FROM user WHERE username = 'ghitssierul' )) LIMIT 1000;", username, friend, friend, username);
+    char *query = sqlite3_mprintf("SELECT username, message, date from message inner join user on user.id=expeditor WHERE (expeditor=(SELECT user.id FROM user WHERE username = '%q') AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) OR  (expeditor=(SELECT user.id FROM user WHERE username = '%q' ) AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) LIMIT 1000;", username, friendUsername, friendUsername, username);
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
+    while (sqlite3_step(dbResult) == SQLITE_ROW)
+        databaseObjectsSerialized[dbObjCounter++] = serializeDataMessage(dbResult);
+
+    sqlite3_close(DATABASE);
+    result = prepareResultFriend(databaseObjectsSerialized);
+    return result;
+}
+
+//get file from message
+dataPack getFile(char *username, char *pictureLink, char *token)
+{
+    dataPack result;
+    result.msgLength = -1;
+    if (!isAuthenticated(username, token))
+        result;
+    result.msgLength = 0;
+    sqlite3 *DATABASE;
+    sqlite3_stmt *dbResult;
+    const char *tail;
+
+    char *query = sqlite3_mprintf("SELECT picture FROM message WHERE message ='%q' AND (expeditor = (SELECT user.id FROM user WHERE username = '%q') OR receiver = (SELECT user.id FROM user WHERE username = '%q')) ;", pictureLink, username, username);
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
+
+    while (sqlite3_step(dbResult) == SQLITE_ROW)
+    {
+        size_t pictureSize = sqlite3_column_bytes(dbResult, 0);
+        result.data = (char *)malloc(pictureSize);
+        char *pointerToPicture = (char *)sqlite3_column_blob(dbResult, 0);
+        for (int i = 0; i < pictureSize; i++)
+            result.data[i] = pointerToPicture[i];
+        result.msgLength = pictureSize;
+    }
+    sqlite3_close(DATABASE);
+    return result;
+}
+
+dataPack getNotFriendList(char *username, char *token)
+{
+    dataPack result;
+    result.msgLength = -1;
+    if (!isAuthenticated(username, token))
+    {
+        return result;
+    }
+    sqlite3 *DATABASE;
+    sqlite3_stmt *dbResult;
+    const char *tail;
+
+    dataPack databaseObjectsSerialized[100] = {0};
+    int dbObjCounter = 0;
+
+    char *query = sqlite3_mprintf("Select user.username, user.email, user.phone, user.profilePicture from user left join (Select friends.friend_id,user.username, user.email, user.phone, user.profilePicture from user inner join friends on friends.id=user.id where friends.id=(SELECT user.id FROM user WHERE username = '%q')) as x on user.id=x.friend_id where x.friend_id is null and user.username!='%q';", username, username);
     sqlite3_open("CHATAPP.db", &DATABASE);
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
     while (sqlite3_step(dbResult) == SQLITE_ROW)
     {
-        databaseObjectsSerialized[dbObjCounter] = serializeDataMessage(dbResult);
+        databaseObjectsSerialized[dbObjCounter] = serializeDataFriend(dbResult);
         dbObjCounter++;
     }
     sqlite3_close(DATABASE);
     result = prepareResultFriend(databaseObjectsSerialized);
     return result;
 }
-
 // public functions
 //
 //
