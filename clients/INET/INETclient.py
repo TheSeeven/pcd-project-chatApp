@@ -1,15 +1,21 @@
 import socket	#for sockets
 import sys	#for exit
+import os
+from io import BytesIO
 from tkinter import *
 import tkinter
 import tkinter.scrolledtext as st
-from PIL import Image
+from tkinter import filedialog
+from PIL import ImageTk
 
-
+userToken="jd30jc0sjh3"
+addFriend= 'addfriend'
+removeFriend= 'removefriend'
+getHistroy= 'getmessageslist'
+sendMessage= 'sendmessage'
 
 class ClientInterface:
 	def __init__(self):
-
 
 		## Initialize Inerface
 
@@ -34,76 +40,102 @@ class ClientInterface:
 
 		self.loginFailed = False ## Used only for testing purposes! This variable should be set to True or False depending on the Server Checking of the user credentials!
 		self.currentUser = StringVar()
-		self.currentUser.set('Mile')
+		self.currentUser.set('')
 		
-		self.SelectedUser = StringVar()
-		self.SelectedUser.set('')
 		self.otherUser = StringVar()
 		self.otherUser.set('Nobody')
 		self.messageToBeSent=StringVar()
 		self.messageToBeSent.set('')
-
-		############################################################
 		
-		# Functions ###
+		###########################################################################################################
+		
+		#################################################### Functions ###########################################
 
-		# Login check function (TODO, send info that the user provided to the server!)
+		# Login check function
 		def loginCheck():
-			if(self.loginFailed == True):
-				self.failMessage.grid(row=2, column=1, sticky="nsew")
-			else:
-				self.failMessage.grid_remove()
-				self.frame.grid_remove()
-				sendToChat()
+			if(self.usernameLoginEntry.get() != '' or self.passwordLoginEntry.get() != ''):
+				usernameLength = len(self.usernameLoginEntry.get())
+				passwordLength = len(self.passwordLoginEntry.get())
+				credentialsLength = usernameLength+passwordLength+2
+				#fullLength = str(credentialsLength+ len(str(credentialsLength))+ 1)
+				messageForServer = str(credentialsLength) + ':' + ';' + self.usernameLoginEntry.get() + ',' + self.passwordLoginEntry.get()
+				print(messageForServer)
+
+				# TODO send info to server + wait for a true/false statement.
+				userToken= "functia de read de la server"
+
+				#if(userToken == '')
+				if(self.loginFailed == True):
+					self.failMessage.grid(row=2, column=1, sticky="nsew")
+				else:
+					self.currentUser.set(self.usernameLoginEntry.get())
+					self.failMessage.grid_remove()
+					self.frame.grid_remove()	
+					sendToChat()
 
 		def goToRegister():
 			self.failMessage.grid_remove()
 			self.frame.grid_remove()
 			showRegister()
 
-		def exitApp(): ## Application Close Function
-			#self.interface.destroy() ########### Commented for testing purposes, DO NOT DELETE!
-			#exit()					  ########### Commented for testing purposes, DO NOT DELETE!
-			self.frame.destroy()
-			self.failMessage.destroy()
-
+		## Application Close Function
+		def exitApp(): 
+			self.interface.destroy()
+			exit()					  
+		
 		def AddFriend():
-			check = self.connectedUsers.selection_get()
+			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
 			if check not in fullList:
 				userToBeAdded=check
-				print(userToBeAdded)
+				credentialsLength= str(len(self.currentUser.get()) + len(str(userToBeAdded)) + len(userToken)+ len(addFriend)+ 3)
+				messageToSend = credentialsLength + ':' + addFriend + ';' + self.currentUser.get() + ',' + userToBeAdded + ',' + userToken
+				print(messageToSend)
+				#TODO send <messageToSend> to server + Refresh Lists!!!
 				self.friendsList.insert(END, userToBeAdded)
-			#TODO Add verification / send info to server / DB
 
 		def RemoveFriend():
-			check = self.connectedUsers.selection_get()
+			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
 			if check in fullList:
 				userToBeRemoved=check
-				print(userToBeRemoved)
+				credentialsLength= str(len(self.currentUser.get()) + len(str(userToBeRemoved)) + len(userToken)+ len(removeFriend)+ 3)
+				messageToSend = credentialsLength + ':' + removeFriend + ';' + self.currentUser.get() + ',' + userToBeRemoved + ',' + userToken
+				
+				# TODO send and verify if it was successful + Refresh of lists!
+
 				self.friendsList.delete(self.friendsList.get(0,END).index(userToBeRemoved))
-			#TODO Add verification / send info to server / DB
+		
 
 		def ChatWith(): 
-			check = self.connectedUsers.selection_get()
+			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
-			print(check)
 			if check in fullList:
 				self.otherUser.set(str(check))
+				credentialsLength = str(len(self.currentUser.get())+ len(self.otherUser.get())+ len(userToken) + len(getHistroy)+ 3)
+				messageToSend = credentialsLength + ':' + getHistroy + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken
+				
+				# TODO Send and verify 
+
 			else:
 				self.otherUser.set('Nobody')
-			#TODO Add verification / send info to server / DB
 
 		def SendText():
-			if(self.otherUser.get() != 'Nobody'):
+			if(self.otherUser.get() != 'Nobody' and self.messageEntryBox.get() != ''):
 				textToSend=self.messageEntryBox.get()
+
+				credentialsLength = str(len(sendMessage) + len(self.currentUser.get()) + len(self.otherUser.get()) + len(userToken) + len(textToSend) + 4)
+				messageToSend = credentialsLength + ':' + sendMessage + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken + ',' + textToSend
+				
+				# TODO Send to server + validate 
+
 				self.messageToBeSent=str(self.currentUser.get())+': '+str(textToSend)+'\n'
 				self.messageHistory.configure(state='normal')
 				self.messageHistory.insert(END, self.messageToBeSent)
 				self.messageHistory.update_idletasks()
 				self.messageHistory.configure(state='disabled')
-			#TODO apel cu mesaj catre >>> self.otherUser <<<
+				self.messageEntryBox.delete(0, END)
+			
 
 		def backToLogin():
 			self.fieldsFrame.grid_remove()
@@ -114,9 +146,28 @@ class ClientInterface:
 		def submitRegisterInfo():
 			print('ceva')
 
-		def AddImage():
+		def AddFile():
+			rep = filedialog.askopenfilenames(parent=self.interface, initialdir='~/Desktop', initialfile='', filetypes=[("All files", "*")])
+			print(rep)
+			file_stream = BytesIO()
+			counter=0
+			with open(rep[0], 'rb') as file:
+				byte = file.read(1)
+				while byte:
+					file_stream.write(byte)
+					byte= file.read(1)
+					counter=counter+1
+			file_stream.seek(0)
+			
+			# with open('plm', "wb") as file:
+			# 	byte = file_stream.read(1)
+			# 	while byte:
+			# 		file.write(byte)
+			# 		byte= file_stream.read(1)
+					
+
+			print(counter)
 			#TODO open file browser and send image as bytes
-			print("Hehe")
 
 ####################################################### CHAT ######################################################################
 		def sendToChat(): ## Function that erases Login Interface and initializes the Chat Interface
@@ -143,9 +194,10 @@ class ClientInterface:
 				changeRequestButtons.grid_columnconfigure(j, weight=1)
 			changeRequestButtons.grid(row=0, column=0)
 			
-
 			Button(changeRequestButtons, text="Change Avatar") .grid(row=0, column=1)
+
 			Button(changeRequestButtons, text="Change Username") .grid(row=0, column=2)
+
 			Button(changeRequestButtons, text="Change Password") .grid(row=0, column=3)
 
 
@@ -158,14 +210,14 @@ class ClientInterface:
 			self.messageHistory.grid(row=1, column=0)
 
 			# List of Connected Users # TODO Function to get currently connected users or all users
-			self.connectedUsersListLabel = Label(self.listsframe, text="Currently Connected Users", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=0)
+			self.currentUsersListLabel = Label(self.listsframe, text="Current Users", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=0)
 			self.cUsersScroll = Scrollbar(self.listsframe)
-			self.connectedUsers = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll.set, width= 15, height=15, selectmode=SINGLE)
-			self.cUsersScroll.config(command = self.connectedUsers.yview)
-			self.connectedUsers.insert(END, "Gigel")
-			self.connectedUsers.insert(END, "Keke")
-			self.connectedUsers.insert(END, "Juger")
-			self.connectedUsers.grid(row=1, column=0)
+			self.currentUsersList = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll.set, width= 15, height=15, selectmode=SINGLE)
+			self.cUsersScroll.config(command = self.currentUsersList.yview)
+			self.currentUsersList.insert(END, "Gigel")
+			self.currentUsersList.insert(END, "Keke")
+			self.currentUsersList.insert(END, "Juger")
+			self.currentUsersList.grid(row=1, column=0)
 			
 			# List of Friends # TODO Function to get friends + Add Friend (Probs will use button) + Remove Friend (Probs will use button)
 			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
@@ -212,7 +264,7 @@ class ClientInterface:
 			self.submitButton.grid(row=1, column=2)
 
 			# Add Images Button
-			self.addImage = Button(self.buttonsFrame, width=1, height=1, text="Img", command=AddImage) # TODO Add Funtion Command!
+			self.addImage = Button(self.buttonsFrame, width=5, height=1, text="Add File", command=AddFile) # TODO Add Funtion Command!
 			self.addImage.grid(row=1, column=0)
 
 			self.messageHistory.configure(state='disabled')
@@ -264,16 +316,17 @@ class ClientInterface:
 
 ###########################################################################################################################
 
+####################################### Login Interface ############################################################
 
 		# Username Field
 		Label(self.frame, text="Username:", bg="black", fg="white", font="none 12 bold") .grid(row=0, column=1, sticky="nsew")
-		self.usernameEntry = Entry(self.frame, width=20, bg="white")
-		self.usernameEntry.grid(row=0, column= 2, sticky="nsew")
+		self.usernameLoginEntry = Entry(self.frame, width=20, bg="white")
+		self.usernameLoginEntry.grid(row=0, column= 2, sticky="nsew")
 
 		# Password Field
 		Label (self.frame, text="Password:", bg="black", fg="white", font="none 12 bold") .grid(row=1, column=1, sticky="nsew")
-		self.passwordEntry = Entry(self.frame, width=20, bg="white")
-		self.passwordEntry.grid(row=1, column= 2, sticky="nsew")
+		self.passwordLoginEntry = Entry(self.frame, width=20, bg="white", show='*')
+		self.passwordLoginEntry.grid(row=1, column= 2, sticky="nsew")
 
 		# Check Login Info / Login Button
 		Button(self.frame, text="Login", width=6, command=loginCheck) .grid(row=2, column=1, sticky="nsew")
@@ -289,9 +342,10 @@ class ClientInterface:
 		self.failMessage.config(bg="black", fg="red")
 		self.failMessage.grid(row=2, column=1, sticky="nsew")
 		self.failMessage.grid_remove()
-
 	
 		self.interface.mainloop()
+
+##########################################################################################################################
 
 GUI = ClientInterface()
 """
@@ -305,24 +359,16 @@ class ClientConnection:
 		
 	print('Socket Created')
 
-	host = 'www.google.com' # TODO Change Host + PORT
-	port = 80               # $$$$$$$$$$$$$$$$$$$
-
-	try:
-		remote_ip = socket.gethostbyname( host )
-
-	except socket.gaierror:
-		#could not resolve
-		print('Hostname could not be resolved. Exiting')
-		sys.exit()
-
+	host = 'localhost'
+	port = 6000             
+	
 	#Connect to remote server
-	s.connect((remote_ip , port))
+	s.connect((host , port))
 
 	print('Socket Connected to ' + host + ' on ip ' + remote_ip)
 
 	#Send some data to remote server
-	message = "GET / HTTP/1.1\r\n\r\n"
+	message = ""
 
 	try :
 		#Set the whole string
