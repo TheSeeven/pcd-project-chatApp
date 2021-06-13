@@ -13,7 +13,10 @@
 
 #define PORT 6000
 
-dataPack processRequest(char *string)
+typedef struct timeval timeval;
+
+dataPack
+processRequest(char *string)
 {
     dataPack result;
 
@@ -125,6 +128,30 @@ dataPack processRequest(char *string)
         free(phone);
         free(token);
     }
+    else if (strcmp(request, "insertuser") == 0)
+    {
+        char *username = getArgumentByIndex(string, 0);
+        char *email = getArgumentByIndex(string, 1);
+        char *phone = getArgumentByIndex(string, 1);
+        char *password = getArgumentByIndex(string, 2);
+        if (insertUser(username, email, phone, password) == OK)
+            result.msgLength = -2;
+
+        free(username);
+        free(phone);
+        free(email);
+        free(password);
+    }
+    else if (strcmp(request, "removeuser") == 0)
+    {
+        char *username = getArgumentByIndex(string, 0);
+        char *token = getArgumentByIndex(string, 2);
+        if (removeUser(username, token) == OK)
+            result.msgLength = -2;
+
+        free(username);
+        free(token);
+    }
     else if (strcmp(request, "sendmessage") == 0)
     {
         char *username = getArgumentByIndex(string, 0);
@@ -156,38 +183,38 @@ void handleClient(int *args)
     int server_fd = args[1];
     int valread;
     printf("Client connected!\n");
-    size_t curentMessageLength = 1;
+    size_t receiveSize = 1;
     char *buffer;
     char header[10] = {0};
     char headerCounter = 0;
 
     bool gotHeader = false;
-    buffer = malloc(curentMessageLength);
-    memset(buffer, '\0', curentMessageLength);
+    buffer = malloc(receiveSize);
+    memset(buffer, '\0', receiveSize);
 
     char *packets;
     int downloadedSoFar = 0;
     int toDownload = 0;
     while (1)
     {
-        valread = read(new_socket, buffer, curentMessageLength);
+        valread = read(new_socket, buffer, receiveSize);
         if (valread != 0)
         {
             if (*buffer == ':' && !gotHeader)
             {
                 free(buffer);
                 gotHeader = true;
-                curentMessageLength = stringToInt(header);
-                packets = malloc(curentMessageLength);
-                buffer = malloc(curentMessageLength);
-                memset(buffer, '\0', curentMessageLength);
+                receiveSize = stringToInt(header);
+                packets = malloc(receiveSize);
+                buffer = malloc(receiveSize);
+                memset(buffer, '\0', receiveSize);
             }
             else if ((*buffer >= '0' && *buffer <= '9') && !gotHeader)
             {
                 header[headerCounter++] = *buffer;
                 free(buffer);
-                buffer = malloc(curentMessageLength);
-                memset(buffer, '\0', curentMessageLength);
+                buffer = malloc(receiveSize);
+                memset(buffer, '\0', receiveSize);
             }
             else if ((*buffer < '0' || *buffer > '9') && !gotHeader)
             {
@@ -196,12 +223,13 @@ void handleClient(int *args)
             }
             else
             {
-                if (downloadedSoFar < curentMessageLength)
+
+                if (downloadedSoFar < receiveSize)
                 {
                     for (int i = 0; i < valread; i++)
                         packets[downloadedSoFar++] = buffer[i];
                     free(buffer);
-                    toDownload = curentMessageLength - downloadedSoFar;
+                    toDownload = receiveSize - downloadedSoFar;
                     if (toDownload == 0)
                     {
                         dataPack result = processRequest(packets);
@@ -212,7 +240,7 @@ void handleClient(int *args)
                         free(packets);
                         gotHeader = false;
                         downloadedSoFar = 0;
-                        curentMessageLength = 1;
+                        receiveSize = 1;
                     }
                     else
                     {
@@ -269,19 +297,129 @@ int main(int argc, char **argv)
             perror("listen");
             exit(EXIT_FAILURE);
         }
+
+        int receiveSize = 1;
+        bool gotHeader = false;
+        char *buffer = malloc(receiveSize);
+        memset(buffer, '\0', receiveSize);
+
+        char *packets;
+        int downloadedSoFar = 0;
+        int toDownload = 0;
+
+        char header[10] = {0};
+        int headerCounter = 0;
+
+        bool procesing = false;
         while (1)
         {
-            if ((new_socket = accept(server_fd, (struct sockaddr *)&address,
-                                     (socklen_t *)&addrlen)) < 0)
+            if (!procesing)
             {
-                perror("Client connection error!");
-                continue;
+                new_socket = accept(server_fd, (struct sockaddr *)&address,
+                                    (socklen_t *)&addrlen);
+                int child = fork();
+                if (child == 0)
+                {
+                    timeval tv;
+                    tv.tv_sec = 0;
+                    tv.tv_usec = 500;
+                    setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
+
+                    if (new_socket > -1)
+                        procesing = true;
+                    else
+                        exit(1);
+                }
             }
-            pthread_t connection;
-            int *ThreadArgs = (int *)malloc(sizeof(int) * 2);
-            ThreadArgs[0] = new_socket;
-            ThreadArgs[1] = server_fd;
-            pthread_create(&connection, NULL, (void *)handleClient, ThreadArgs);
+            if (procesing)
+            {
+                valread = read(new_socket, buffer, receiveSize);
+                if (valread != 0)
+                {
+                    if (*buffer == ':' && !gotHeader)
+                    {
+                        free(buffer);
+                        gotHeader = true;
+                        receiveSize = stringToInt(header);
+                        packets = malloc(receiveSize);
+                        buffer = malloc(receiveSize);
+                        memset(buffer, '\0', receiveSize);
+                    }
+                    else if ((*buffer >= '0' && *buffer <= '9') && !gotHeader)
+                    {
+                        header[headerCounter++] = *buffer;
+                        free(buffer);
+                        buffer = malloc(receiveSize);
+                        memset(buffer, '\0', receiveSize);
+                    }
+                    else if ((*buffer < '0' || *buffer > '9') && !gotHeader)
+                    {
+                        free(buffer);
+                        break;
+                    }
+                    else
+                    {
+
+                        if (downloadedSoFar < receiveSize)
+                        {
+                            for (int i = 0; i < valread; i++)
+                                packets[downloadedSoFar++] = buffer[i];
+                            free(buffer);
+                            toDownload = receiveSize - downloadedSoFar;
+                            if (toDownload == 0)
+                            {
+                                char *username = getArgumentByIndex(packets, 0);
+                                char *password = getArgumentByIndex(packets, 1);
+
+                                char *result = loginUser(username, password);
+                                if (result[0] == -2)
+                                {
+                                    close(new_socket);
+                                    procesing = false;
+                                    printf("Unacepted client!\n");
+                                }
+                                else
+                                {
+                                    send(new_socket, result, 20, 0);
+                                    timeval tv;
+                                    tv.tv_sec = 800;
+                                    tv.tv_usec = 0;
+                                    setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
+                                    pthread_t connection;
+                                    int *ThreadArgs = (int *)malloc(sizeof(int) * 2);
+                                    ThreadArgs[0] = new_socket;
+                                    ThreadArgs[1] = server_fd;
+                                    pthread_create(&connection, NULL, (void *)handleClient, ThreadArgs);
+
+                                    headerCounter = 0;
+                                    memset(header, 0, 10);
+                                    free(packets);
+                                    gotHeader = false;
+                                    downloadedSoFar = 0;
+                                    receiveSize = 1;
+                                    procesing = false;
+                                }
+                                free(username);
+                                free(password);
+                                free(result);
+                                exit(0);
+                            }
+                            else
+                            {
+                                buffer = malloc(toDownload);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    printf("Lost connection to client!\n");
+
+                    procesing = false;
+                }
+            }
+
+            //////////////////////////////////////////
         }
         return 0;
     }
