@@ -3,6 +3,8 @@ import sys	#for exit
 from tkinter import *
 import tkinter
 import tkinter.scrolledtext as st
+from PIL import Image
+
 
 
 class ClientInterface:
@@ -15,6 +17,18 @@ class ClientInterface:
 		self.interface.title("<<< ChatApp Login >>>")
 		self.interface.configure(background="black")
 		self.interface.geometry("500x500")
+
+		# Setting up the Interface Grid
+		for i in range(0,3):
+			self.interface.grid_columnconfigure(i, weight=1)
+		for j in range(0,3):
+			self.interface.grid_rowconfigure(j, weight=1)
+
+		## Create Frame 
+
+		self.frame = Frame(self.interface)
+		self.frame.configure(background="black")
+		self.frame.grid(row=1, column=1)
 
 		# Variables that are assiged values after server checks #######
 
@@ -30,21 +44,22 @@ class ClientInterface:
 		self.messageToBeSent.set('')
 
 		############################################################
-
-
-		# Setting up the Interface Grid
-		for i in range(0,3):
-			self.interface.grid_columnconfigure(i, weight=1)
-		for j in range(0,3):
-			self.interface.grid_rowconfigure(j, weight=1)
-
-		## Create Frame 
-
-		self.frame = Frame(self.interface)
-		self.frame.configure(background="black")
-		self.frame.grid(row=1, column=1)
 		
 		# Functions ###
+
+		# Login check function (TODO, send info that the user provided to the server!)
+		def loginCheck():
+			if(self.loginFailed == True):
+				self.failMessage.grid(row=2, column=1, sticky="nsew")
+			else:
+				self.failMessage.grid_remove()
+				self.frame.grid_remove()
+				sendToChat()
+
+		def goToRegister():
+			self.failMessage.grid_remove()
+			self.frame.grid_remove()
+			showRegister()
 
 		def exitApp(): ## Application Close Function
 			#self.interface.destroy() ########### Commented for testing purposes, DO NOT DELETE!
@@ -81,7 +96,7 @@ class ClientInterface:
 			#TODO Add verification / send info to server / DB
 
 		def SendText():
-			if(self.otherUser != 'Nobody'):
+			if(self.otherUser.get() != 'Nobody'):
 				textToSend=self.messageEntryBox.get()
 				self.messageToBeSent=str(self.currentUser.get())+': '+str(textToSend)+'\n'
 				self.messageHistory.configure(state='normal')
@@ -89,6 +104,15 @@ class ClientInterface:
 				self.messageHistory.update_idletasks()
 				self.messageHistory.configure(state='disabled')
 			#TODO apel cu mesaj catre >>> self.otherUser <<<
+
+		def backToLogin():
+			self.fieldsFrame.grid_remove()
+			self.interface.title("<<< ChatApp Login >>>")
+			self.frame.grid(row=1, column=1)
+
+
+		def submitRegisterInfo():
+			print('ceva')
 
 		def AddImage():
 			#TODO open file browser and send image as bytes
@@ -110,6 +134,20 @@ class ClientInterface:
 			for j in range(0,3):
 				self.listsframe.grid_rowconfigure(j, weight=1)
 			self.listsframe.grid(row=1, column=1)
+
+			# Frame with account change request buttons
+			changeRequestButtons = Frame(self.interface)
+			for i in range(0,1):
+				changeRequestButtons.grid_rowconfigure(i, weight=1)
+			for j in range(0,4):
+				changeRequestButtons.grid_columnconfigure(j, weight=1)
+			changeRequestButtons.grid(row=0, column=0)
+			
+
+			Button(changeRequestButtons, text="Change Avatar") .grid(row=0, column=1)
+			Button(changeRequestButtons, text="Change Username") .grid(row=0, column=2)
+			Button(changeRequestButtons, text="Change Password") .grid(row=0, column=3)
+
 
 			# User currently talking to
 			self.curUserLabel = Label(self.interface, textvariable=self.otherUser, bg="gray10", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=S)
@@ -183,32 +221,68 @@ class ClientInterface:
 
 #################################################################################################################################
 
-		# Login check function (TODO, send info that the user provided to the server!)
-		def loginCheck():
-			if(self.loginFailed == True):
-				self.failMessage.grid(row=2, column=1, sticky="nsew")
-			else:
-				self.failMessage.grid_remove()
-				self.frame.grid_remove()
-				sendToChat()
+################################################### Register Interface ###################################################
 
-		###############
+		def showRegister():
+			self.interface.title("<<< ChatApp Register >>>")
+
+			self.fieldsFrame = Frame(self.interface)
+			for i in range(0,5):
+				self.fieldsFrame.grid_rowconfigure(i, weight=1)
+			for j in range(0,3):
+				self.fieldsFrame.grid_columnconfigure(j, weight=1)
+			self.fieldsFrame.configure(background="black")
+			self.fieldsFrame.grid(row=1, column=1)
+
+			# Username Entry field
+			Label(self.fieldsFrame, text="Username: ", background="black", fg="white") .grid(row=0, column=0)
+			usernameRegisterEntry = Entry(self.fieldsFrame) .grid(row=0, column=1)
+
+			# Email Entry field
+			Label(self.fieldsFrame, text="Email: ",background="black", fg="white") .grid(row=1, column=0)
+			emailRegisterEntry = Entry(self.fieldsFrame) .grid(row=1, column=1)
+
+			# Password Entry field
+			Label(self.fieldsFrame, text="Password: ",background="black", fg="white") .grid(row=2, column=0)
+			passwordRegisterEntry = Entry(self.fieldsFrame) .grid(row=2, column=1)
+
+			# Phone Number Entry field
+			Label(self.fieldsFrame, text="Phone Number: ",background="black", fg="white") .grid(row=3, column=0)
+			phonenoRegisterEntry = Entry(self.fieldsFrame) .grid(row=3, column=1)
+			
+			# Error creating account Message
+			errorMessage = Label(self.interface, textvariable = "") 
+			errorMessage.config(background="black", fg="red")
+			errorMessage.grid(row=0, column=1) 
+
+			# Back to login button
+			Button(self.fieldsFrame, text="Back to Login", width=10, command=backToLogin) .grid(row=4, column=0, sticky=NW)
+			# Submit info button
+			Button(self.fieldsFrame, text="Submit", width=6, command=submitRegisterInfo) .grid(row=4, column=1, sticky=NE)
+
+			
+
+###########################################################################################################################
+
 
 		# Username Field
-		Label (self.frame, text="Username:", bg="black", fg="white", font="none 12 bold") .grid(row=2, column=1, sticky="nsew")
+		Label(self.frame, text="Username:", bg="black", fg="white", font="none 12 bold") .grid(row=0, column=1, sticky="nsew")
 		self.usernameEntry = Entry(self.frame, width=20, bg="white")
-		self.usernameEntry.grid(row=2, column= 2, sticky="nsew")
+		self.usernameEntry.grid(row=0, column= 2, sticky="nsew")
 
 		# Password Field
-		Label (self.frame, text="Password:", bg="black", fg="white", font="none 12 bold") .grid(row=3, column=1, sticky="nsew")
+		Label (self.frame, text="Password:", bg="black", fg="white", font="none 12 bold") .grid(row=1, column=1, sticky="nsew")
 		self.passwordEntry = Entry(self.frame, width=20, bg="white")
-		self.passwordEntry.grid(row=3, column= 2, sticky="nsew")
+		self.passwordEntry.grid(row=1, column= 2, sticky="nsew")
 
 		# Check Login Info / Login Button
-		Button(self.frame, text="Login", width=6, command=loginCheck) .grid(row=4, column=1, sticky="nsew")
+		Button(self.frame, text="Login", width=6, command=loginCheck) .grid(row=2, column=1, sticky="nsew")
 
 		# Exit App Button
-		Button(self.frame, text="Exit", width=4, command=exitApp) .grid(row=4, column=2, sticky="nsew")
+		Button(self.frame, text="Exit", width=4, command=exitApp) .grid(row=2, column=2, sticky="nsew")
+
+		# Register Button
+		Button(self.frame, text="Register", width=8, command=goToRegister) .grid(row=2, column=0, sticky="nsew")
 
 		# Failed Login Message
 		self.failMessage = Label(self.interface, text="Invalid username or password!", width=10)
