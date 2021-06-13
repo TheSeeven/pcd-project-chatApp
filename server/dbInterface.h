@@ -83,8 +83,10 @@ void generateRandomString(char *dest, int from, int to)
 
 void log(char *logMessage)
 {
-    char *query = sqlite3_mprintf("INSERT INTO logging VALUES()", )
-        executeQuery(query)
+    char *query = sqlite3_mprintf("INSERT INTO logging(log,date) VALUES('q',datetime())", logMessage);
+    executeQuery(query);
+    memset(logMessage, '\0', 200);
+    sqlite3_free(query);
 }
 
 // checks if password is adequate for security reasons
@@ -178,12 +180,14 @@ bool isAuthenticated(char *username, char *authToken)
     {
         valid = sqlite3_column_int(result, 0);
         sqlite3_close(DATABASE);
+        sqlite3_free(query);
     }
 
     if (valid == 1)
     {
         query = sqlite3_mprintf("UPDATE auth set date=datetime()  where token = '%q'", authToken);
         executeQuery(query);
+        sqlite3_free(query);
         return OK;
     }
 
@@ -211,6 +215,7 @@ bool generateAuthToken(char *authToken)
 
         sqlite3_finalize(result);
         sqlite3_close(DATABASE);
+        sqlite3_free(query);
     }
     return QUERY_SUCCESS;
 }
@@ -580,6 +585,7 @@ bool insertUser(char *username, char *email, char *phone, char *password)
     {
         char *query = sqlite3_mprintf("INSERT INTO user(username,email,phone,password) VALUES('%q','%q','%q','%q');", username, email, phone, password);
         executeQuery(query);
+        sqlite3_free(query);
         return QUERY_SUCCESS;
     }
     return QUERY_FAIL;
@@ -601,7 +607,7 @@ bool changeProfilePicture(char *username, char *token, char *picture, int pictur
 
     sqlite3_step(pStmt);
     sqlite3_finalize(pStmt);
-
+    sqlite3_free(query);
     sqlite3_close(DATABASE);
     return QUERY_SUCCESS;
 }
@@ -615,6 +621,7 @@ bool changeUserPassword(char *username, char *newPassword, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("UPDATE user SET password = '%q' WHERE username = '%q';", newPassword, username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -627,6 +634,7 @@ bool changeUserEmail(char *username, char *newEmail, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("UPDATE user SET email = '%q' WHERE username = '%q';", newEmail, username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -639,6 +647,7 @@ bool changeUserPhone(char *username, char *newPhone, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("UPDATE user SET phone = '%q' WHERE username = '%q';", newPhone, username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -649,6 +658,7 @@ bool removeUser(char *username, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("DELETE FROM user WHERE username = '%q';", username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -659,6 +669,7 @@ bool addFriend(char *user1, char *user2, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("INSERT INTO friends(id, friend_id, date) VALUES((SELECT id FROM user where username = '%q'),(SELECT id FROM user where username = '%q'),(datetime()));", user1, user2);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -669,6 +680,7 @@ bool removeFriend(char *user1, char *user2, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("DELETE FROM friends WHERE id = (SELECT id FROM user WHERE username = '%q') AND friend_id = (SELECT id FROM user where username = '%q');", user1, user2);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -694,11 +706,13 @@ bool sendMessage(char *user1, char *user2, char *token, char *message, char *fil
         sqlite3_finalize(pStmt);
         sqlite3_close(DATABASE);
         free(fileLink);
+        sqlite3_free(query);
     }
     else
     {
         char *query = sqlite3_mprintf("INSERT INTO message(expeditor,receiver,message, date) VALUES ((SELECT id FROM user WHERE username = '%q'),(SELECT id FROM user WHERE username = '%q'),'%q',datetime()) ;", user1, user2, message);
         executeQuery(query);
+        sqlite3_free(query);
     }
     return QUERY_SUCCESS;
 }
@@ -719,6 +733,7 @@ char *loginUser(char *username, char *password)
     }
     sqlite3_finalize(result);
     sqlite3_close(DATABASE);
+    sqlite3_free(query);
     char *token;
     if (foundId != -1)
     {
@@ -727,6 +742,7 @@ char *loginUser(char *username, char *password)
         generateAuthToken(token);
         query = sqlite3_mprintf("INSERT INTO auth values(%d,'%q',(datetime()));", foundId, token);
         executeQuery(query);
+        sqlite3_free(query);
         return token;
     }
     token = malloc(1);
@@ -740,6 +756,7 @@ bool logoutUser(char *username, char *token)
 {
     char *query = sqlite3_mprintf("DELETE FROM auth WHERE user_id=(SELECT id FROM user where username='%q') AND token='%q';", username, token);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -748,6 +765,7 @@ bool deleteOldToken()
 {
     char *query = "DELETE FROM 'auth' where 86400 < strftime('%s','now') - strftime('%s',date)";
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -777,6 +795,7 @@ dataPack getFriendList(char *username, char *token)
     }
     sqlite3_close(DATABASE);
     result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
     return result;
 }
 
@@ -801,6 +820,7 @@ dataPack getUser(char *username, char *token)
         result = serializeDataUsername(dbResult);
     }
     sqlite3_close(DATABASE);
+    sqlite3_free(query);
     return result;
 }
 
@@ -827,6 +847,7 @@ dataPack getMessagesList(char *username, char *friendUsername, char *token)
 
     sqlite3_close(DATABASE);
     result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
     return result;
 }
 
@@ -856,6 +877,7 @@ dataPack getFile(char *username, char *pictureLink, char *token)
         result.msgLength = pictureSize;
     }
     sqlite3_close(DATABASE);
+    sqlite3_free(query);
     return result;
 }
 
@@ -885,6 +907,7 @@ dataPack getNotFriendList(char *username, char *token)
     }
     sqlite3_close(DATABASE);
     result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
     return result;
 }
 // public functions

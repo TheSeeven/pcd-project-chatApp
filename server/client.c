@@ -49,10 +49,10 @@ int main(int argc, char **argv)
         printf("\nConnection Failed \n");
         return -1;
     }
-    char *beginQuery = "86:sendmessage;ghitssierul,ghaaaaarul,tsk7EHqSs4n3JgYvwEo2,salut tuturor,,,";
-    char *t = (char *)malloc(89);
+    char *beginQuery = "19:;ghitssierul,mmmmmm";
+    char *t = (char *)malloc(22);
     int querySize = strlen(beginQuery);
-    memset(t, '\0', 89);
+    memset(t, '\0', 22);
     strcpy(t, beginQuery);
     // int fileSize;
     // FILE *f = fopen("data.zip", "r");
@@ -66,14 +66,18 @@ int main(int argc, char **argv)
     //     t[querySize++] = file[i];
     // }
     // fclose(f);
-    while (1)
-    {
-        send(sock, t, 89, 0);
-        sleep(20);
-    }
-    printf("%s\n", buffer);
-    memset(buffer, '\0', 1024);
+    // while (1)
+    // {
+    sleep(10);
+    send(sock, t, 22, 0);
+    sleep(10);
+    recv(sock, buffer, 100, 0);
+    //     sleep(20);
+    // // }s
     sleep(15);
-    free(t);
+    // printf("%s\n", buffer);
+    // memset(buffer, '\0', 1024);
+    // sleep(15);
+    // free(t);
     return 0;
 }
