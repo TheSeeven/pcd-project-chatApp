@@ -46,6 +46,21 @@ void intToString(int num, char *dest)
         destCounter++;
     }
 }
+
+// executes a given statement without returning a value
+void executeQuery(char *query)
+{
+    sqlite3 *DATABASE;
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    char *errorMessage = NULL;
+    if (sqlite3_exec(DATABASE, query, NULL, 0, &errorMessage) != SQLITE_OK)
+    {
+        printf("query execute error! query: %s\n error: --> %s\n\n", query, errorMessage);
+        sqlite3_free(errorMessage);
+    }
+    sqlite3_close(DATABASE);
+}
+
 // generates a sesion token for the given address pointer
 void generateToken(char *token)
 {
@@ -64,6 +79,14 @@ void generateRandomString(char *dest, int from, int to)
     {
         dest[i] = charset[rand() % 61];
     }
+}
+
+void log(char *logMessage)
+{
+    char *query = sqlite3_mprintf("INSERT INTO logging(log,date) VALUES('q',datetime())", logMessage);
+    executeQuery(query);
+    memset(logMessage, '\0', 200);
+    sqlite3_free(query);
 }
 
 // checks if password is adequate for security reasons
@@ -132,20 +155,6 @@ bool isGoodEmail(char *email)
     return NOT_OK;
 }
 
-// executes a given statement without returning a value
-void executeQuery(char *query)
-{
-    sqlite3 *DATABASE;
-    sqlite3_open("CHATAPP.db", &DATABASE);
-    char *errorMessage = NULL;
-    if (sqlite3_exec(DATABASE, query, NULL, 0, &errorMessage) != SQLITE_OK)
-    {
-        printf("query execute error! query: %s\n error: --> %s\n\n", query, errorMessage);
-        sqlite3_free(errorMessage);
-    }
-    sqlite3_close(DATABASE);
-}
-
 // verifies the length of a string
 bool verifyLength(char *data, unsigned int fileSize)
 {
@@ -171,10 +180,16 @@ bool isAuthenticated(char *username, char *authToken)
     {
         valid = sqlite3_column_int(result, 0);
         sqlite3_close(DATABASE);
+        sqlite3_free(query);
     }
 
     if (valid == 1)
+    {
+        query = sqlite3_mprintf("UPDATE auth set date=datetime()  where token = '%q'", authToken);
+        executeQuery(query);
+        sqlite3_free(query);
         return OK;
+    }
 
     return NOT_OK;
 }
@@ -200,6 +215,7 @@ bool generateAuthToken(char *authToken)
 
         sqlite3_finalize(result);
         sqlite3_close(DATABASE);
+        sqlite3_free(query);
     }
     return QUERY_SUCCESS;
 }
@@ -543,10 +559,12 @@ void initializeDatabase()
     char *createAuth = "CREATE TABLE auth (user_id integer NOT NULL,token TEXT UNIQUE NOT NULL, date datetime NOT NULL,FOREIGN KEY(user_id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
     char *createFriends = "CREATE TABLE friends (id integer NOT NULL,friend_id integer NOT NULL, date datetime NOT NULL, FOREIGN KEY (id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE,FOREIGN KEY (friend_id) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
     char *createMessage = "CREATE TABLE message (expeditor integer NOT NULL, receiver integer NOT NULL,message TEXT NOT NULL, date datetime NOT NULL, file BLOB DEFAULT null,filename TEXT DEFAULT null,FOREIGN KEY(expeditor) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE,FOREIGN KEY(receiver) REFERENCES user(id) ON DELETE CASCADE ON UPDATE CASCADE);";
+    char *createLogging = "CREATE TABLE 'logging' ('id'	INTEGER NOT NULL,'log' TEXT NOT NULL,'date' DATETIME NOT NULL,PRIMARY KEY('id' AUTOINCREMENT));";
     executeQuery(createUser);
     executeQuery(createAuth);
     executeQuery(createFriends);
     executeQuery(createMessage);
+    executeQuery(createLogging);
     printf("Tables created succesfully! \n");
 }
 
@@ -567,13 +585,13 @@ bool insertUser(char *username, char *email, char *phone, char *password)
     {
         char *query = sqlite3_mprintf("INSERT INTO user(username,email,phone,password) VALUES('%q','%q','%q','%q');", username, email, phone, password);
         executeQuery(query);
+        sqlite3_free(query);
         return QUERY_SUCCESS;
     }
     return QUERY_FAIL;
 }
 
 // updates the profile picture of a user return 'true' for success, 'false' for fail
-// NOTE: THE SECOND PARAMETER WILL BE CHANGED LATER TO A DIFERENT TYPE
 bool changeProfilePicture(char *username, char *token, char *picture, int pictureSize)
 {
     if (!isAuthenticated(username, token))
@@ -589,7 +607,7 @@ bool changeProfilePicture(char *username, char *token, char *picture, int pictur
 
     sqlite3_step(pStmt);
     sqlite3_finalize(pStmt);
-
+    sqlite3_free(query);
     sqlite3_close(DATABASE);
     return QUERY_SUCCESS;
 }
@@ -603,6 +621,7 @@ bool changeUserPassword(char *username, char *newPassword, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("UPDATE user SET password = '%q' WHERE username = '%q';", newPassword, username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -615,6 +634,7 @@ bool changeUserEmail(char *username, char *newEmail, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("UPDATE user SET email = '%q' WHERE username = '%q';", newEmail, username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -627,6 +647,7 @@ bool changeUserPhone(char *username, char *newPhone, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("UPDATE user SET phone = '%q' WHERE username = '%q';", newPhone, username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -637,6 +658,7 @@ bool removeUser(char *username, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("DELETE FROM user WHERE username = '%q';", username);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -647,6 +669,7 @@ bool addFriend(char *user1, char *user2, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("INSERT INTO friends(id, friend_id, date) VALUES((SELECT id FROM user where username = '%q'),(SELECT id FROM user where username = '%q'),(datetime()));", user1, user2);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -657,6 +680,7 @@ bool removeFriend(char *user1, char *user2, char *token)
         return QUERY_FAIL;
     char *query = sqlite3_mprintf("DELETE FROM friends WHERE id = (SELECT id FROM user WHERE username = '%q') AND friend_id = (SELECT id FROM user where username = '%q');", user1, user2);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -682,17 +706,19 @@ bool sendMessage(char *user1, char *user2, char *token, char *message, char *fil
         sqlite3_finalize(pStmt);
         sqlite3_close(DATABASE);
         free(fileLink);
+        sqlite3_free(query);
     }
     else
     {
         char *query = sqlite3_mprintf("INSERT INTO message(expeditor,receiver,message, date) VALUES ((SELECT id FROM user WHERE username = '%q'),(SELECT id FROM user WHERE username = '%q'),'%q',datetime()) ;", user1, user2, message);
         executeQuery(query);
+        sqlite3_free(query);
     }
     return QUERY_SUCCESS;
 }
 
 //inserts a new authentification in Auth table
-bool loginUser(char *username, char *password)
+char *loginUser(char *username, char *password)
 {
     sqlite3_stmt *result;
     const char *tail;
@@ -707,15 +733,22 @@ bool loginUser(char *username, char *password)
     }
     sqlite3_finalize(result);
     sqlite3_close(DATABASE);
+    sqlite3_free(query);
+    char *token;
     if (foundId != -1)
     {
-        char token[21] = {0};
+        token = malloc(21);
+        memset(token, 0, 21);
         generateAuthToken(token);
         query = sqlite3_mprintf("INSERT INTO auth values(%d,'%q',(datetime()));", foundId, token);
         executeQuery(query);
-        return QUERY_SUCCESS;
+        sqlite3_free(query);
+        return token;
     }
-    return QUERY_FAIL;
+    token = malloc(1);
+    token[0] = -2;
+    return token;
+    ;
 }
 
 //deletes a authentification on disconnect
@@ -723,6 +756,7 @@ bool logoutUser(char *username, char *token)
 {
     char *query = sqlite3_mprintf("DELETE FROM auth WHERE user_id=(SELECT id FROM user where username='%q') AND token='%q';", username, token);
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -731,6 +765,7 @@ bool deleteOldToken()
 {
     char *query = "DELETE FROM 'auth' where 86400 < strftime('%s','now') - strftime('%s',date)";
     executeQuery(query);
+    sqlite3_free(query);
     return QUERY_SUCCESS;
 }
 
@@ -760,6 +795,7 @@ dataPack getFriendList(char *username, char *token)
     }
     sqlite3_close(DATABASE);
     result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
     return result;
 }
 
@@ -784,6 +820,7 @@ dataPack getUser(char *username, char *token)
         result = serializeDataUsername(dbResult);
     }
     sqlite3_close(DATABASE);
+    sqlite3_free(query);
     return result;
 }
 
@@ -810,6 +847,7 @@ dataPack getMessagesList(char *username, char *friendUsername, char *token)
 
     sqlite3_close(DATABASE);
     result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
     return result;
 }
 
@@ -839,6 +877,7 @@ dataPack getFile(char *username, char *pictureLink, char *token)
         result.msgLength = pictureSize;
     }
     sqlite3_close(DATABASE);
+    sqlite3_free(query);
     return result;
 }
 
@@ -868,6 +907,7 @@ dataPack getNotFriendList(char *username, char *token)
     }
     sqlite3_close(DATABASE);
     result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
     return result;
 }
 // public functions
