@@ -8,7 +8,7 @@ import tkinter.scrolledtext as st
 from tkinter import filedialog
 from PIL import ImageTk
 
-userToken="jd30jc0sjh3"
+userToken='jd30jc0sjh3'
 addFriend= 'addfriend'
 removeFriend= 'removefriend'
 getHistroy= 'getmessageslist'
@@ -38,7 +38,6 @@ class ClientInterface:
 
 		# Variables that are assiged values after server checks #######
 
-		self.loginFailed = False ## Used only for testing purposes! This variable should be set to True or False depending on the Server Checking of the user credentials!
 		self.currentUser = StringVar()
 		self.currentUser.set('')
 		
@@ -58,20 +57,26 @@ class ClientInterface:
 				passwordLength = len(self.passwordLoginEntry.get())
 				credentialsLength = usernameLength+passwordLength+2
 				#fullLength = str(credentialsLength+ len(str(credentialsLength))+ 1)
-				messageForServer = str(credentialsLength) + ':' + ';' + self.usernameLoginEntry.get() + ',' + self.passwordLoginEntry.get()
-				print(messageForServer)
+				messageToSend = str(credentialsLength) + ':' + ';' + self.usernameLoginEntry.get() + ',' + self.passwordLoginEntry.get()
 
 				# TODO send info to server + wait for a true/false statement.
-				userToken= "functia de read de la server"
+				
+				loginFailed = ClientConnection.__init__.sendMessageToServer(self, messageToSend)
+				if(loginFailed == False):
+					receivedMessage=''
+					while receivedMessage == '':
+						receivedMessage = ClientConnection.__init__.listenToMessages(self)
 
-				#if(userToken == '')
-				if(self.loginFailed == True):
-					self.failMessage.grid(row=2, column=1, sticky="nsew")
+					if(receivedMessage == ''):
+						self.failMessage.grid(row=2, column=1, sticky="nsew")
+					else:
+						userToken = receivedMessage
+						self.currentUser.set(self.usernameLoginEntry.get())
+						self.failMessage.grid_remove()
+						self.frame.grid_remove()	
+						sendToChat()
 				else:
-					self.currentUser.set(self.usernameLoginEntry.get())
-					self.failMessage.grid_remove()
-					self.frame.grid_remove()	
-					sendToChat()
+					print('Failed to send message')
 
 		def goToRegister():
 			self.failMessage.grid_remove()
@@ -90,9 +95,7 @@ class ClientInterface:
 				userToBeAdded=check
 				credentialsLength= str(len(self.currentUser.get()) + len(str(userToBeAdded)) + len(userToken)+ len(addFriend)+ 3)
 				messageToSend = credentialsLength + ':' + addFriend + ';' + self.currentUser.get() + ',' + userToBeAdded + ',' + userToken
-				print(messageToSend)
-				#TODO send <messageToSend> to server + Refresh Lists!!!
-				self.friendsList.insert(END, userToBeAdded)
+				ClientConnection.__init__.sendMessageToServer(self, messageToSend)
 
 		def RemoveFriend():
 			check = self.currentUsersList.selection_get()
@@ -101,11 +104,7 @@ class ClientInterface:
 				userToBeRemoved=check
 				credentialsLength= str(len(self.currentUser.get()) + len(str(userToBeRemoved)) + len(userToken)+ len(removeFriend)+ 3)
 				messageToSend = credentialsLength + ':' + removeFriend + ';' + self.currentUser.get() + ',' + userToBeRemoved + ',' + userToken
-				
-				# TODO send and verify if it was successful + Refresh of lists!
-
-				self.friendsList.delete(self.friendsList.get(0,END).index(userToBeRemoved))
-		
+				ClientConnection.__init__.sendMessageToServer(self, messageToSend)
 
 		def ChatWith(): 
 			check = self.currentUsersList.selection_get()
@@ -114,9 +113,15 @@ class ClientInterface:
 				self.otherUser.set(str(check))
 				credentialsLength = str(len(self.currentUser.get())+ len(self.otherUser.get())+ len(userToken) + len(getHistroy)+ 3)
 				messageToSend = credentialsLength + ':' + getHistroy + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken
-				
-				# TODO Send and verify 
-
+				ClientConnection.__init__.sendMessageToServer(self, messageToSend)
+				returnValue=''
+				# TODO Make with threads
+				returnValue = ClientConnection.__init__.listenToMessages(self)
+				if(returnValue != ''):
+					self.messageHistory.configure(state='nomral')
+					self.messageHistory.insert(END, returnValue)
+					self.messageHistory.update_idletasks()
+					self.messageHistory.configure(state='disabled')
 			else:
 				self.otherUser.set('Nobody')
 
@@ -127,8 +132,8 @@ class ClientInterface:
 				credentialsLength = str(len(sendMessage) + len(self.currentUser.get()) + len(self.otherUser.get()) + len(userToken) + len(textToSend) + 4)
 				messageToSend = credentialsLength + ':' + sendMessage + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken + ',' + textToSend
 				
-				# TODO Send to server + validate 
-
+				returnedValue = ClientConnection.__init__.sendMessageToServer(self, messageToSend)
+				
 				self.messageToBeSent=str(self.currentUser.get())+': '+str(textToSend)+'\n'
 				self.messageHistory.configure(state='normal')
 				self.messageHistory.insert(END, self.messageToBeSent)
@@ -159,11 +164,11 @@ class ClientInterface:
 					counter=counter+1
 			file_stream.seek(0)
 			
-			# with open('plm', "wb") as file:
-			# 	byte = file_stream.read(1)
-			# 	while byte:
-			# 		file.write(byte)
-			# 		byte= file_stream.read(1)
+			with open('plm', "wb") as file:
+				byte = file_stream.read(1)
+				while byte:
+					file.write(byte)
+					byte= file_stream.read(1)
 					
 
 			print(counter)
@@ -196,7 +201,7 @@ class ClientInterface:
 			
 			Button(changeRequestButtons, text="Change Avatar") .grid(row=0, column=1)
 
-			Button(changeRequestButtons, text="Change Username") .grid(row=0, column=2)
+			Button(changeRequestButtons, text="Change Email") .grid(row=0, column=2)
 
 			Button(changeRequestButtons, text="Change Password") .grid(row=0, column=3)
 
@@ -206,7 +211,7 @@ class ClientInterface:
 			self.talkingToLabel = Label(self.interface, text="Currently talking to: ", bg="gray10", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=SW)
 
 			# Message History Text box
-			self.messageHistory = st.ScrolledText(self.interface, width=40, height=25 ) # TODO add function to save each message that is sent by client and received from the other client!
+			self.messageHistory = st.ScrolledText(self.interface, width=40, height=25 )
 			self.messageHistory.grid(row=1, column=0)
 
 			# List of Connected Users # TODO Function to get currently connected users or all users
@@ -347,47 +352,56 @@ class ClientInterface:
 
 ##########################################################################################################################
 
-GUI = ClientInterface()
-"""
+################################################# Connection #############################################################
 class ClientConnection:
-	#create an INET, STREAMing socket
-	try:
-		s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	except socket.error:
-		print('Failed to create socket')
-		sys.exit()
+
+	def __init__(self):
+		#create an INET, STREAMing socket
+		try:
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		except socket.error:
+			print('Failed to create socket')
+			sys.exit()
+			
+		print('Socket Created')
+
+		host = 'localhost'
+		port = 6000             
 		
-	print('Socket Created')
+		#Connect to remote server
+		#s.connect((host , port))
 
-	host = 'localhost'
-	port = 6000             
+		print('Socket Connected to ' + host + ' on ip ' + host + ':' + str(port))
+
+		#Now receive data
+		def listenToMessages(self):
+			try:
+				reply = s.recv(4096)
+			except socket.error:
+				return("Failed to receive message")
+
+			return(reply)
+
+		#Send some data to remote server
+		def sendMessageToServer(self,message):
+			try :
+				#Set the whole string
+				s.sendall(message)
+			except socket.error:
+				#Send failed
+				return(True)
+				
+			return(False)
+
+
+		
+
+		
+		
+		#s.close()
+	#############################################################################################
+
 	
-	#Connect to remote server
-	s.connect((host , port))
 
-	print('Socket Connected to ' + host + ' on ip ' + remote_ip)
-
-	#Send some data to remote server
-	message = ""
-
-	try :
-		#Set the whole string
-		s.sendall(message)
-	except socket.error:
-		#Send failed
-		print('Send failed')
-		sys.exit()
-
-	print('Message send successfully')
-
-	#Now receive data
-	try:
-		reply = s.recv(4096)
-	except socket.error:
-		print('Failed to receive messages.')
-		sys.exit()
-
-	print(reply)
-
-	s.close()
-	"""
+Conn = ClientConnection()
+GUI = ClientInterface()
