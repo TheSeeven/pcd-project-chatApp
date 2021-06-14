@@ -415,7 +415,7 @@ dataPack serializeDataUsers(sqlite3_stmt *data)
 }
 
 //
-dataPack prepareResultFriend(dataPack data[])
+dataPack prepareResult(dataPack data[])
 {
     dataPack result;
     int resultCounter = 0;
@@ -434,6 +434,36 @@ dataPack prepareResultFriend(dataPack data[])
         free(data[i].data);
     }
     result.msgLength = finalLength;
+    return result;
+}
+
+dataPack prepareResultAdmin(dataPack data[])
+{
+    dataPack result;
+    int resultCounter = 0;
+    int finalLength = 0;
+    char header[10] = {0};
+
+    for (int i = 0; data[i].msgLength != 0; i++)
+    {
+        finalLength += data[i].msgLength;
+    }
+    intToString(finalLength, header);
+    result.data = (char *)malloc(finalLength + strlen(header) + 1);
+
+    for (int i = 0; header[i] != '\0'; i++)
+        result.data[resultCounter++] = header[i];
+    result.data[resultCounter++] = ':';
+
+    for (int i = 0; data[i].msgLength != 0; i++)
+    {
+        for (int j = 0; j < data[i].msgLength; j++)
+        {
+            result.data[resultCounter++] = data[i].data[j];
+        }
+        free(data[i].data);
+    }
+    result.msgLength = finalLength + strlen(header) + 1;
     return result;
 }
 
@@ -894,7 +924,7 @@ dataPack getFriendList(char *username, char *token)
         dbObjCounter++;
     }
     sqlite3_close(DATABASE);
-    result = prepareResultFriend(databaseObjectsSerialized);
+    result = prepareResult(databaseObjectsSerialized);
     sqlite3_free(query);
     return result;
 }
@@ -946,7 +976,7 @@ dataPack getMessagesList(char *username, char *friendUsername, char *token)
         databaseObjectsSerialized[dbObjCounter++] = serializeDataMessage(dbResult);
 
     sqlite3_close(DATABASE);
-    result = prepareResultFriend(databaseObjectsSerialized);
+    result = prepareResult(databaseObjectsSerialized);
     sqlite3_free(query);
     return result;
 }
@@ -1006,7 +1036,7 @@ dataPack getNotFriendList(char *username, char *token)
         dbObjCounter++;
     }
     sqlite3_close(DATABASE);
-    result = prepareResultFriend(databaseObjectsSerialized);
+    result = prepareResult(databaseObjectsSerialized);
     sqlite3_free(query);
     return result;
 }
@@ -1032,7 +1062,7 @@ dataPack getAllUsers()
         dbObjCounter++;
     }
     sqlite3_close(DATABASE);
-    result = prepareResultFriend(databaseObjectsSerialized);
+    result = prepareResultAdmin(databaseObjectsSerialized);
     sqlite3_free(query);
     return result;
 }
@@ -1058,7 +1088,7 @@ dataPack getLoggedData()
         dbObjCounter++;
     }
     sqlite3_close(DATABASE);
-    result = prepareResultFriend(databaseObjectsSerialized);
+    result = prepareResultAdmin(databaseObjectsSerialized);
     sqlite3_free(query);
     return result;
 }

@@ -277,13 +277,10 @@ void handleAdminConnections(void)
     rc = bind(serverSocket, (struct sockaddr *)&serverSocketAddr, sizeof(serverSocketAddr));
     rc = listen(serverSocket, 1);
 
-    char *buffer = malloc(1);
-    char *packets;
+    char buffer[100] = {0};
+    char packets[100] = {0};
     int toDownload = 0;
-    char header[10] = {0};
-    int headerCounter = 0;
-    bool gotHeader = false;
-    int receiveSize = 1;
+    int receiveSize = 100;
     int downloadedSoFar = 0;
     while (1)
     {
@@ -295,52 +292,18 @@ void handleAdminConnections(void)
             valread = recv(clientSocket, buffer, receiveSize, 0);
             if (valread != 0)
             {
-                if (*buffer == ':' && !gotHeader)
+                if (downloadedSoFar < receiveSize)
                 {
-                    free(buffer);
-                    gotHeader = true;
-                    receiveSize = stringToInt(header);
-                    packets = malloc(receiveSize);
-                    buffer = malloc(receiveSize);
-                    memset(buffer, '\0', receiveSize);
-                }
-                else if ((*buffer >= '0' && *buffer <= '9') && !gotHeader)
-                {
-                    header[headerCounter++] = *buffer;
-                    free(buffer);
-                    buffer = malloc(receiveSize);
-                    memset(buffer, '\0', receiveSize);
-                }
-                else if ((*buffer < '0' || *buffer > '9') && !gotHeader)
-                {
-                    free(buffer);
-                    break;
-                }
-                else
-                {
-                    if (downloadedSoFar < receiveSize)
-                    {
-                        for (int i = 0; i < valread; i++)
-                            packets[downloadedSoFar++] = buffer[i];
-                        free(buffer);
-                        toDownload = receiveSize - downloadedSoFar;
-                        if (toDownload == 0)
-                        {
-                            dataPack result = processAdminRequest(packets);
-                            if (result.msgLength == -1)
-                                break;
-                            headerCounter = 0;
-                            memset(header, 0, 10);
-                            free(packets);
-                            gotHeader = false;
-                            downloadedSoFar = 0;
-                            receiveSize = 1;
-                        }
-                        else
-                        {
-                            buffer = malloc(toDownload);
-                        }
-                    }
+                    for (int i = 0; i < valread; i++)
+                        packets[downloadedSoFar++] = buffer[i];
+                    dataPack result = processAdminRequest(packets);
+                    if (result.msgLength == -1)
+                        break;
+                    send(clientSocket, result.data, result.msgLength, 0);
+                    downloadedSoFar = 0;
+                    receiveSize = 100;
+                    memset(buffer, '\0', 100);
+                    memset(packets, '\0', 100);
                 }
             }
             else
@@ -616,7 +579,7 @@ void handleClient(threadClientArguments *args)
     connectClient(username, new_socket);
     pthread_mutex_unlock(&mutexlock);
     char *clientIp = args->ip;
-    sprintf(logMessage, "client %s logged in succesfully", clientIp);
+    sprintf(logMessage, "client ip: %s username: %s logged in succesfully", clientIp, username);
     logger(logMessage);
     int valread;
     printf("Client connected!\n");
@@ -714,7 +677,7 @@ void handleClient(threadClientArguments *args)
 
 int main(int argc, char **argv)
 {
-    bool DEBUGING = true;
+    bool DEBUGING = false;
     if (!DEBUGING)
     {
         pthread_t adminHandler;
@@ -783,22 +746,25 @@ int main(int argc, char **argv)
             if (!procesing)
             {
                 new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
-                int child = fork();
-                if (child == 0)
-                {
-                    inet_ntop(AF_INET, &address.sin_addr, clientIp, INET_ADDRSTRLEN);
-                    timeval tv;
-                    tv.tv_sec = 0;
-                    tv.tv_usec = 500;
-                    setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
-
-                    if (new_socket > -1)
-                        procesing = true;
-                    else
+                if(new_socket!=-1)
+                {                      
+                    int child = fork();
+                    if (child == 0)
                     {
-                        sprintf(logMessage, "connection could not be accepted %s", clientIp);
-                        logger(logMessage);
-                        exit(1);
+                        inet_ntop(AF_INET, &address.sin_addr, clientIp, INET_ADDRSTRLEN);
+                        timeval tv;
+                        tv.tv_sec = 0;
+                        tv.tv_usec = 500;
+                        setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
+
+                        if (new_socket > -1)
+                            procesing = true;
+                        else
+                        {
+                            sprintf(logMessage, "connection could not be accepted %s", clientIp);
+                            logger(logMessage);
+                            exit(1);
+                        }
                     }
                 }
             }
@@ -847,7 +813,7 @@ int main(int argc, char **argv)
                                 char *result = loginUser(username, password);
                                 if (result[0] == -2)
                                 {
-                                    sprintf(logMessage, "client %s could not be accepted", clientIp);
+                                    sprintf(logMessage, "client %s could not be accepted (invalid request)", clientIp);
                                     close(new_socket);
                                     procesing = false;
                                     logger(logMessage);
@@ -880,7 +846,7 @@ int main(int argc, char **argv)
                                     else
                                     {
                                         close(new_socket);
-                                        sprintf(logMessage, "client %s could not be accepted", clientIp);
+                                        sprintf(logMessage, "client %s could not be accepted (user blocked)", clientIp);
                                         logger(logMessage);
                                     }
                                 }
@@ -910,9 +876,9 @@ int main(int argc, char **argv)
     // logger(logMessage);
     pthread_mutex_destroy(&mutexlock);
 
-    char *string = malloc(20);
-    memset(string, 0, 20);
-    strcpy(string, "getconnectedusers;");
+    // char *string = malloc(20);
+    // memset(string, 0, 20);
+    // // strcpy(string, "getconnectedusers;");
     // char *string2 = malloc(10);
     // memset(string2, 0, 10);
     // strcpy(string2, "getlogs;");
@@ -923,29 +889,31 @@ int main(int argc, char **argv)
     // memset(string4, 0, 18);
     // strcpy(string4, "getblockedusers;");
 
-    char *username = malloc(9);
-    memset(username, 0, 9);
-    strcpy(username, "qwertyui");
-    char *username2 = malloc(10);
-    memset(username2, 0, 10);
-    strcpy(username2, "zaqxswcde");
+    // char *username = malloc(9);
+    // memset(username, 0, 9);
+    // strcpy(username, "qwertyui");
+    // char *username2 = malloc(10);
+    // memset(username2, 0, 10);
+    // strcpy(username2, "zaqxswcde");
     // char *username3 = malloc(10);
     // memset(username3, 0, 10);
     // strcpy(username3, "edcrfvtgb");
 
-    connectClient(username, 45);
-    connectClient(username2, 50);
+    // connectClient(username, 45);
+    // connectClient(username2, 50);
     // blockUser(username3);
 
-    dataPack result = processAdminRequest(string);
+    // dataPack result = processAdminRequest(string);
     // dataPack result2 = processAdminRequest(string2);
-    // printf("%s", result2.data);
+    // printf("\n\n%s\n\n\n\n", result2.data);
     // fflush(stdout);
+
     // dataPack result3 = processAdminRequest(string3);
-    // printf("%s", result3.data);
+    // printf("\n\n\n\n%s\n\n\n\n", result3.data);
     // fflush(stdout);
     // dataPack result4 = processAdminRequest(string4);
-    printf("%s\n", result.data);
-    fflush(stdout);
+    // printf("%s\n", result.data);
+    // fflush(stdout);
+
     return 0;
 }
