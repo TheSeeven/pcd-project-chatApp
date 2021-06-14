@@ -1,20 +1,112 @@
-import socket	#for sockets
-import sys	#for exit
+import socket	
+import sys	
 import os
 from io import BytesIO
 from tkinter import *
 import tkinter
 import tkinter.scrolledtext as st
 from tkinter import filedialog
-from PIL import ImageTk
+from PIL import ImageTk, Image
+import threading
+import time
 
 userToken='jd30jc0sjh3'
 addFriend= 'addfriend'
 removeFriend= 'removefriend'
 getHistroy= 'getmessageslist'
 sendMessage= 'sendmessage'
+insertUser='insertuser'
+AppExit = False
+
+HOST = 'localhost'
+PORT = 6000   
+
+class ClientConnection: 
+	def __init__(self):
+		self.s = None
+		try:
+			self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		except socket.error:
+			print('Failed to create socket')
+			sys.exit()
+			
+		print('Socket Created')
+
+		#Connect to remote server
+		self.s.connect((HOST , PORT))
+		print('Socket Connected to ' + HOST + ' on ip ' + HOST + ':' + str(PORT))
+
+	#Now receive data
+	def listenToMessages(self):
+		toDownload = 0
+		header =""
+		gotHeader=False
+		receiveSize=1
+		downloadedSoFar=0
+		buffer= ""
+		packet = ""
+		try:
+			while(True):
+				valread = self.s.recv(receiveSize)
+				if valread != 0 :
+					if buffer == ':' and not gotHeader:
+						buffer=""
+						gotHeader=True
+						receiveSize = int(header)
+					elif buffer >= '0' or buffer >= '9' and not gotHeader:
+						header+=buffer
+						buffer=""
+					elif  buffer < '0' or buffer >'9' and not gotHeader:
+						buffer= ""
+						break;
+					else:
+						if downloadedSoFar<receiveSize:
+							packet+=buffer
+							buffer=""
+							toDownload = receiveSize - downloadedSoFar
+							if toDownload==0:
+								receiveSize=1
+								downloadedSoFar=0
+								gotHeader=False
+								return packet
+				else:
+					break
+		except socket.error:
+			return("Failed to receive message")
+
+
+		return(packet)
+
+	#Send some data to remote server
+	def sendMessageToServer(self,message):
+		global s
+		message = bytes(message,'utf-8')
+		try :
+			#Set the whole string
+			s.sendall(message)
+		except socket.error:
+			#Send failed
+			return(True)
+			
+		return(False)
+
+	def CloseSocket(self):
+		global s
+		s.close()
+
+Conn = ClientConnection()
+
+
+getNotFriendsList='getnotfriendslist'
+getFriendList='getfriendlist'
+canSendToServer = True
+isWaiting = False
+s = None
+
+
 
 class ClientInterface:
+
 	def __init__(self):
 
 		## Initialize Inerface
@@ -23,6 +115,14 @@ class ClientInterface:
 		self.interface.title("<<< ChatApp Login >>>")
 		self.interface.configure(background="black")
 		self.interface.geometry("500x500")
+
+		def closeApp():
+			AppExit=True
+			ClientConnection.CloseSocket(ClientConnection)
+			exitApp()
+
+		self.interface.protocol("WM_DELETE_WINDOW", closeApp)
+		self.interface.bind('<Escape>', closeApp)
 
 		# Setting up the Interface Grid
 		for i in range(0,3):
@@ -48,29 +148,82 @@ class ClientInterface:
 		
 		###########################################################################################################
 		
+		############################################# Thread Functions ###########################################
+
+		def getUserLists(threadName, username, token):
+			global getFriendList,canSendToServer,getNotFriendsList
+
+
+			credentialsLength = str(len(getNotFriendsList) + len(username) + len(token) + 2)
+			messageToSend = credentialsLength + ':' + getNotFriendsList + ';' + username + ',' + token
+
+			credentialsLength2 = str(len(getFriendList) + len(username) + len(token) + 2)
+			messageToSend2 = credentialsLength2 + ':' + getFriendList + ';' + username + ',' + token
+			while AppExit != True:
+				time.sleep(30)
+				if canSendToServer == True:
+					canSendToServer = False
+					ClientConnection.sendMessageToServer(self, messageToSend)
+					UserString = ClientConnection.listenToMessages()
+					UserList = list(UserString.split(','))
+					self.currentUsersList.delete(0, END)
+					for i in range(0, len(UserList)):
+						self.currentUsersList.insert(END, UserList[i])
+
+					ClientConnection.sendMessageToServer(self, messageToSend2)
+					UserString2 = ClientConnection.listenToMessages()
+					UserList2 = list(UserString2.split(','))
+					self.friendsList.delete(0, END)
+					for i in range(0, len(UserList2)):
+						self.friendsList.insert(END, UserList2[i])
+					canSendToServer = True
+
+
+		def getMessages():
+			time.sleep(10)
+			global isWaiting
+			while AppExit != True:
+				while isWaiting == False:
+					time.sleep(5)
+					receivedmessage=ClientConnection.listenToMessages()
+					receivedmessage= '\n' + receivedmessage
+					self.messageHistory.configure(state='normal')
+					self.messageHistory.insert(END, receivedmessage)
+					self.messageHistory.update_idletasks()
+					self.messageHistory.configure(state='disabled')
+
+		##########################################################################################################
+
 		#################################################### Functions ###########################################
 
 		# Login check function
 		def loginCheck():
+			global isWaiting,canSendToServer
 			if(self.usernameLoginEntry.get() != '' or self.passwordLoginEntry.get() != ''):
 				usernameLength = len(self.usernameLoginEntry.get())
 				passwordLength = len(self.passwordLoginEntry.get())
 				credentialsLength = usernameLength+passwordLength+2
-				#fullLength = str(credentialsLength+ len(str(credentialsLength))+ 1)
+				canSendToServer = False
 				messageToSend = str(credentialsLength) + ':' + ';' + self.usernameLoginEntry.get() + ',' + self.passwordLoginEntry.get()
-
-				# TODO send info to server + wait for a true/false statement.
-				
-				loginFailed = ClientConnection.__init__.sendMessageToServer(self, messageToSend)
-				if(loginFailed == False):
-					receivedMessage=''
-					while receivedMessage == '':
-						receivedMessage = ClientConnection.__init__.listenToMessages(self)
+				isWaiting = True
+				loginFailed = ClientConnection.sendMessageToServer(self, messageToSend)
+				canSendToServer = True
+				isWaiting = False
+				if(loginFailed == True):
+					counter=0
+					while counter <= 100:
+						#receivedMessage = ClientConnection.listenToMessages()
+						receivedMessage='Hei'
+						counter=counter+1
 
 					if(receivedMessage == ''):
 						self.failMessage.grid(row=2, column=1, sticky="nsew")
 					else:
 						userToken = receivedMessage
+
+						threading._start_new_thread(getUserLists,('Lists update Thread',self.currentUser.get(), userToken))
+						threading._start_new_thread(getMessages,)
+						
 						self.currentUser.set(self.usernameLoginEntry.get())
 						self.failMessage.grid_remove()
 						self.frame.grid_remove()	
@@ -89,36 +242,47 @@ class ClientInterface:
 			exit()					  
 		
 		def AddFriend():
+			global canSendToServer
 			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
 			if check not in fullList:
 				userToBeAdded=check
 				credentialsLength= str(len(self.currentUser.get()) + len(str(userToBeAdded)) + len(userToken)+ len(addFriend)+ 3)
 				messageToSend = credentialsLength + ':' + addFriend + ';' + self.currentUser.get() + ',' + userToBeAdded + ',' + userToken
-				ClientConnection.__init__.sendMessageToServer(self, messageToSend)
+				canSendToServer = False
+				ClientConnection.sendMessageToServer(self, messageToSend)
+				canSendToServer = True
 
 		def RemoveFriend():
+			global canSendToServer
 			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
 			if check in fullList:
 				userToBeRemoved=check
 				credentialsLength= str(len(self.currentUser.get()) + len(str(userToBeRemoved)) + len(userToken)+ len(removeFriend)+ 3)
 				messageToSend = credentialsLength + ':' + removeFriend + ';' + self.currentUser.get() + ',' + userToBeRemoved + ',' + userToken
-				ClientConnection.__init__.sendMessageToServer(self, messageToSend)
+				canSendToServer = False
+				ClientConnection.sendMessageToServer(self, messageToSend)
+				canSendToServer = False
 
+		# select with whom to speak and send to server a request for the message History!
 		def ChatWith(): 
+			global canSendToServer,isWaiting
 			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
 			if check in fullList:
 				self.otherUser.set(str(check))
 				credentialsLength = str(len(self.currentUser.get())+ len(self.otherUser.get())+ len(userToken) + len(getHistroy)+ 3)
 				messageToSend = credentialsLength + ':' + getHistroy + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken
-				ClientConnection.__init__.sendMessageToServer(self, messageToSend)
+				canSendToServer = False
+				ClientConnection.sendMessageToServer(self, messageToSend)
+				isWaiting = True
 				returnValue=''
-				# TODO Make with threads
-				returnValue = ClientConnection.__init__.listenToMessages(self)
+				returnValue = ClientConnection.listenToMessages()
+				canSendToServer = True
+				isWaiting = False
 				if(returnValue != ''):
-					self.messageHistory.configure(state='nomral')
+					self.messageHistory.configure(state='normal')
 					self.messageHistory.insert(END, returnValue)
 					self.messageHistory.update_idletasks()
 					self.messageHistory.configure(state='disabled')
@@ -126,15 +290,18 @@ class ClientInterface:
 				self.otherUser.set('Nobody')
 
 		def SendText():
+			global canSendToServer
 			if(self.otherUser.get() != 'Nobody' and self.messageEntryBox.get() != ''):
 				textToSend=self.messageEntryBox.get()
 
 				credentialsLength = str(len(sendMessage) + len(self.currentUser.get()) + len(self.otherUser.get()) + len(userToken) + len(textToSend) + 4)
 				messageToSend = credentialsLength + ':' + sendMessage + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken + ',' + textToSend
 				
-				returnedValue = ClientConnection.__init__.sendMessageToServer(self, messageToSend)
+				canSendToServer = False
+				returnedValue = ClientConnection.sendMessageToServer(self, messageToSend)
+				canSendToServer = True
 				
-				self.messageToBeSent=str(self.currentUser.get())+': '+str(textToSend)+'\n'
+				self.messageToBeSent='\n'+str(self.currentUser.get())+': '+str(textToSend)
 				self.messageHistory.configure(state='normal')
 				self.messageHistory.insert(END, self.messageToBeSent)
 				self.messageHistory.update_idletasks()
@@ -149,7 +316,14 @@ class ClientInterface:
 
 
 		def submitRegisterInfo():
-			print('ceva')
+			if(self.usernameRegisterEntry.get() != '' and self.emailRegisterEntry.get() != '' and self.passwordRegisterEntry.get() != '' and self.phonenoRegisterEntry.get() != ''):
+				credentialsLength=str(len(insertUser) + len(self.usernameRegisterEntry.get()) + len(self.emailRegisterEntry.get()) + len(self.passwordRegisterEntry.get()) + len(self.phonenoRegisterEntry.get()) + 4)
+				messageToSend = credentialsLength + ':' + insertUser + ';' + self.usernameRegisterEntry.get() + ',' + self.emailRegisterEntry.get() + ',' + self.phonenoRegisterEntry.get() + ',' + self.passwordRegisterEntry.get()
+				returnedValue = ClientConnection.sendMessageToServer(self, messageToSend)
+				self.fieldsFrame.grid_remove()
+				self.interface.title("<<< ChatApp Login >>>")
+				self.frame.grid(row=1, column=1)
+
 
 		def AddFile():
 			rep = filedialog.askopenfilenames(parent=self.interface, initialdir='~/Desktop', initialfile='', filetypes=[("All files", "*")])
@@ -164,11 +338,16 @@ class ClientInterface:
 					counter=counter+1
 			file_stream.seek(0)
 			
-			with open('plm', "wb") as file:
-				byte = file_stream.read(1)
-				while byte:
-					file.write(byte)
-					byte= file_stream.read(1)
+			print(file_stream.getvalue())
+
+
+
+
+			# with open('plm', "wb") as file:
+			# 	byte = file_stream.read(1)
+			# 	while byte:
+			# 		file.write(byte)
+			# 		byte= file_stream.read(1)
 					
 
 			print(counter)
@@ -192,7 +371,7 @@ class ClientInterface:
 			self.listsframe.grid(row=1, column=1)
 
 			# Frame with account change request buttons
-			changeRequestButtons = Frame(self.interface)
+			changeRequestButtons = Frame(self.interface, background="black")
 			for i in range(0,1):
 				changeRequestButtons.grid_rowconfigure(i, weight=1)
 			for j in range(0,4):
@@ -205,6 +384,16 @@ class ClientInterface:
 
 			Button(changeRequestButtons, text="Change Password") .grid(row=0, column=3)
 
+			# User Profile Icon/Image
+			my_pic = Image.open("C:/Users/Mile/Desktop/rose.png")
+
+			resized = my_pic.resize((100, 100), Image.ANTIALIAS)
+
+			self.new_pic = ImageTk.PhotoImage(resized)
+
+			my_label= Label(changeRequestButtons , image=self.new_pic)
+			my_label.grid(row=0, column=0)
+			my_label.update()
 
 			# User currently talking to
 			self.curUserLabel = Label(self.interface, textvariable=self.otherUser, bg="gray10", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=S)
@@ -224,7 +413,7 @@ class ClientInterface:
 			self.currentUsersList.insert(END, "Juger")
 			self.currentUsersList.grid(row=1, column=0)
 			
-			# List of Friends # TODO Function to get friends + Add Friend (Probs will use button) + Remove Friend (Probs will use button)
+			# List of Friends 
 			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
 			self.friendsListScroll = Scrollbar(self.listsframe)
 			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll, width= 15, height=15, selectmode=SINGLE)
@@ -265,11 +454,11 @@ class ClientInterface:
 			self.buttonsFrame.grid(row=2, column=1)
 
 			# Submit written message button (TODO Make it possible to send the message with "Enter")
-			self.submitButton = Button(self.buttonsFrame, width=4, height=1, text="Send", command=SendText) # TODO Add Function Command!
+			self.submitButton = Button(self.buttonsFrame, width=4, height=1, text="Send", command=SendText)
 			self.submitButton.grid(row=1, column=2)
 
 			# Add Images Button
-			self.addImage = Button(self.buttonsFrame, width=5, height=1, text="Add File", command=AddFile) # TODO Add Funtion Command!
+			self.addImage = Button(self.buttonsFrame, width=5, height=1, text="Add File", command=AddFile)
 			self.addImage.grid(row=1, column=0)
 
 			self.messageHistory.configure(state='disabled')
@@ -293,24 +482,28 @@ class ClientInterface:
 
 			# Username Entry field
 			Label(self.fieldsFrame, text="Username: ", background="black", fg="white") .grid(row=0, column=0)
-			usernameRegisterEntry = Entry(self.fieldsFrame) .grid(row=0, column=1)
+			self.usernameRegisterEntry = Entry(self.fieldsFrame, textvariable="") 
+			self.usernameRegisterEntry.grid(row=0, column=1)
 
 			# Email Entry field
 			Label(self.fieldsFrame, text="Email: ",background="black", fg="white") .grid(row=1, column=0)
-			emailRegisterEntry = Entry(self.fieldsFrame) .grid(row=1, column=1)
+			self.emailRegisterEntry = Entry(self.fieldsFrame, textvariable="") 
+			self.emailRegisterEntry.grid(row=1, column=1)
 
 			# Password Entry field
 			Label(self.fieldsFrame, text="Password: ",background="black", fg="white") .grid(row=2, column=0)
-			passwordRegisterEntry = Entry(self.fieldsFrame) .grid(row=2, column=1)
+			self.passwordRegisterEntry = Entry(self.fieldsFrame, show='*', textvariable="") 
+			self.passwordRegisterEntry.grid(row=2, column=1)
 
 			# Phone Number Entry field
 			Label(self.fieldsFrame, text="Phone Number: ",background="black", fg="white") .grid(row=3, column=0)
-			phonenoRegisterEntry = Entry(self.fieldsFrame) .grid(row=3, column=1)
+			self.phonenoRegisterEntry = Entry(self.fieldsFrame, textvariable="") 
+			self.phonenoRegisterEntry.grid(row=3, column=1)
 			
 			# Error creating account Message
-			errorMessage = Label(self.interface, textvariable = "") 
-			errorMessage.config(background="black", fg="red")
-			errorMessage.grid(row=0, column=1) 
+			self.errorMessage = Label(self.interface, textvariable = "") 
+			self.errorMessage.config(background="black", fg="red")
+			self.errorMessage.grid(row=0, column=1) 
 
 			# Back to login button
 			Button(self.fieldsFrame, text="Back to Login", width=10, command=backToLogin) .grid(row=4, column=0, sticky=NW)
@@ -351,57 +544,9 @@ class ClientInterface:
 		self.interface.mainloop()
 
 ##########################################################################################################################
-
 ################################################# Connection #############################################################
-class ClientConnection:
 
-	def __init__(self):
-		#create an INET, STREAMing socket
-		try:
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		except socket.error:
-			print('Failed to create socket')
-			sys.exit()
-			
-		print('Socket Created')
-
-		host = 'localhost'
-		port = 6000             
-		
-		#Connect to remote server
-		#s.connect((host , port))
-
-		print('Socket Connected to ' + host + ' on ip ' + host + ':' + str(port))
-
-		#Now receive data
-		def listenToMessages(self):
-			try:
-				reply = s.recv(4096)
-			except socket.error:
-				return("Failed to receive message")
-
-			return(reply)
-
-		#Send some data to remote server
-		def sendMessageToServer(self,message):
-			try :
-				#Set the whole string
-				s.sendall(message)
-			except socket.error:
-				#Send failed
-				return(True)
-				
-			return(False)
+#############################################################################################
 
 
-		
-
-		
-		
-		#s.close()
-	#############################################################################################
-
-	
-
-Conn = ClientConnection()
 GUI = ClientInterface()
