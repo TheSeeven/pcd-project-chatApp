@@ -81,9 +81,9 @@ void generateRandomString(char *dest, int from, int to)
     }
 }
 
-void log(char *logMessage)
+void logger(char *logMessage)
 {
-    char *query = sqlite3_mprintf("INSERT INTO logging(log,date) VALUES('q',datetime())", logMessage);
+    char *query = sqlite3_mprintf("INSERT INTO logging(log,date) VALUES('%q',datetime())", logMessage);
     executeQuery(query);
     memset(logMessage, '\0', 200);
     sqlite3_free(query);
@@ -314,6 +314,106 @@ dataPack serializeDataFriend(sqlite3_stmt *data)
     return result;
 }
 
+dataPack serializeDataLog(sqlite3_stmt *data)
+{
+    dataPack result;
+    char *log = (char *)sqlite3_column_text(data, 0);
+    char *date = (char *)sqlite3_column_text(data, 1);
+
+    int logLength = strlen(log);
+    int dateLength = strlen(date);
+
+    char logLengthChar[10] = {0};
+    char dateLengthChar[10] = {0};
+    intToString(logLength, logLengthChar);
+    intToString(dateLength, dateLengthChar);
+
+    char *bytesResult = (char *)malloc(numberOfDigits(logLength) +
+                                       numberOfDigits(dateLength) +
+                                       logLength +
+                                       dateLength + 2);
+
+    int cursorIndex = 0;
+
+    for (int i = 0; logLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = logLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; dateLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = dateLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; i < logLength; i++)
+        bytesResult[cursorIndex++] = log[i];
+    for (int i = 0; i < dateLength; i++)
+        bytesResult[cursorIndex++] = date[i];
+    int msgLength = numberOfDigits(logLength) +
+                    numberOfDigits(dateLength) +
+                    logLength +
+                    dateLength + 2;
+
+    result.data = bytesResult;
+    result.msgLength = msgLength;
+    return result;
+}
+
+dataPack serializeDataUsers(sqlite3_stmt *data)
+{
+    dataPack result;
+    char *username = (char *)sqlite3_column_text(data, 0);
+    char *email = (char *)sqlite3_column_text(data, 1);
+    char *phone = (char *)sqlite3_column_text(data, 2);
+
+    int usernameLength = strlen(username);
+    int emailLength = strlen(email);
+    int phoneLength = strlen(phone);
+
+    char usernameLengthChar[10] = {0};
+    char emailLengthChar[10] = {0};
+    char phoneLengthChar[10] = {0};
+    intToString(usernameLength, usernameLengthChar);
+    intToString(emailLength, emailLengthChar);
+    intToString(phoneLength, phoneLengthChar);
+
+    char *bytesResult = (char *)malloc(numberOfDigits(usernameLength) +
+                                       numberOfDigits(emailLength) +
+                                       numberOfDigits(phoneLength) +
+                                       usernameLength +
+                                       emailLength +
+                                       phoneLength + 3);
+
+    int cursorIndex = 0;
+
+    for (int i = 0; usernameLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = usernameLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; emailLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = emailLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; phoneLengthChar[i] != '\0'; i++)
+        bytesResult[cursorIndex++] = phoneLengthChar[i];
+    bytesResult[cursorIndex++] = ';';
+
+    for (int i = 0; i < usernameLength; i++)
+        bytesResult[cursorIndex++] = username[i];
+    for (int i = 0; i < emailLength; i++)
+        bytesResult[cursorIndex++] = email[i];
+    for (int i = 0; i < phoneLength; i++)
+        bytesResult[cursorIndex++] = phone[i];
+    int msgLength = numberOfDigits(usernameLength) +
+                    numberOfDigits(emailLength) +
+                    numberOfDigits(phoneLength) +
+                    usernameLength +
+                    emailLength +
+                    phoneLength + 3;
+
+    result.data = bytesResult;
+    result.msgLength = msgLength;
+    return result;
+}
+
 //
 dataPack prepareResultFriend(dataPack data[])
 {
@@ -498,7 +598,7 @@ dataPack serializeDataNotFriend(sqlite3_stmt *data)
                                        usernameLength +
                                        emailLength +
                                        phoneLength +
-                                       profilePictureLength + 5);
+                                       profilePictureLength + 4);
 
     int cursorIndex = 0;
 
@@ -533,7 +633,7 @@ dataPack serializeDataNotFriend(sqlite3_stmt *data)
                     usernameLength +
                     emailLength +
                     phoneLength +
-                    profilePictureLength + 5;
+                    profilePictureLength + 4;
 
     result.data = bytesResult;
     result.msgLength = msgLength;
@@ -903,6 +1003,58 @@ dataPack getNotFriendList(char *username, char *token)
     while (sqlite3_step(dbResult) == SQLITE_ROW)
     {
         databaseObjectsSerialized[dbObjCounter] = serializeDataNotFriend(dbResult);
+        dbObjCounter++;
+    }
+    sqlite3_close(DATABASE);
+    result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
+    return result;
+}
+
+//gets all the users from database
+dataPack getAllUsers()
+{
+    dataPack result;
+    result.msgLength = -1;
+    sqlite3 *DATABASE;
+    sqlite3_stmt *dbResult;
+    const char *tail;
+
+    dataPack databaseObjectsSerialized[100] = {0};
+    int dbObjCounter = 0;
+
+    char *query = sqlite3_mprintf("Select username, email, phone from user;");
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
+    while (sqlite3_step(dbResult) == SQLITE_ROW)
+    {
+        databaseObjectsSerialized[dbObjCounter] = serializeDataUsers(dbResult);
+        dbObjCounter++;
+    }
+    sqlite3_close(DATABASE);
+    result = prepareResultFriend(databaseObjectsSerialized);
+    sqlite3_free(query);
+    return result;
+}
+
+//gets the log from database
+dataPack getLoggedData()
+{
+    dataPack result;
+    result.msgLength = -1;
+    sqlite3 *DATABASE;
+    sqlite3_stmt *dbResult;
+    const char *tail;
+
+    dataPack databaseObjectsSerialized[100] = {0};
+    int dbObjCounter = 0;
+
+    char *query = sqlite3_mprintf("Select log,date from logging;");
+    sqlite3_open("CHATAPP.db", &DATABASE);
+    sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
+    while (sqlite3_step(dbResult) == SQLITE_ROW)
+    {
+        databaseObjectsSerialized[dbObjCounter] = serializeDataLog(dbResult);
         dbObjCounter++;
     }
     sqlite3_close(DATABASE);
