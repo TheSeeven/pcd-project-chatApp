@@ -746,22 +746,25 @@ int main(int argc, char **argv)
             if (!procesing)
             {
                 new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
-                int child = fork();
-                if (child == 0)
-                {
-                    inet_ntop(AF_INET, &address.sin_addr, clientIp, INET_ADDRSTRLEN);
-                    timeval tv;
-                    tv.tv_sec = 0;
-                    tv.tv_usec = 500;
-                    setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
-
-                    if (new_socket > -1)
-                        procesing = true;
-                    else
+                if(new_socket!=-1)
+                {                      
+                    int child = fork();
+                    if (child == 0)
                     {
-                        sprintf(logMessage, "connection could not be accepted %s", clientIp);
-                        logger(logMessage);
-                        exit(1);
+                        inet_ntop(AF_INET, &address.sin_addr, clientIp, INET_ADDRSTRLEN);
+                        timeval tv;
+                        tv.tv_sec = 0;
+                        tv.tv_usec = 500;
+                        setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
+
+                        if (new_socket > -1)
+                            procesing = true;
+                        else
+                        {
+                            sprintf(logMessage, "connection could not be accepted %s", clientIp);
+                            logger(logMessage);
+                            exit(1);
+                        }
                     }
                 }
             }
