@@ -84,6 +84,7 @@ int getRequestType(char *request)
     {
         return GET_BLOCKED_USERS;
     }
+    return 0;
 }
 
 void prettyPrint(char *data, int msgLength, char *request)
@@ -91,14 +92,17 @@ void prettyPrint(char *data, int msgLength, char *request)
     int requestType = getRequestType(request);
     if (requestType == GET_CONNECTED_USERS)
     {
-        printf("Connected users: \n\n");
+        printf("\nConnected users: \n\n");
         for (int i = 0; i < msgLength; i++)
         {
             if (data[i] == ',')
                 printf("\n");
-            printf("%c", data[i]);
-            fflush(stdout);
+            else{
+                printf("%c", data[i]);
+                fflush(stdout);
+            }
         }
+        printf("\n");
     }
     else if (requestType == GET_USERS)
     {
@@ -110,7 +114,7 @@ void prettyPrint(char *data, int msgLength, char *request)
         char *username;
         char *email;
         char *phone;
-
+        printf("\nAll users:\n\n");
         for (int i = 0; i < msgLength; i++)
         {
             usernameLength = getParameterByIndex(&data[i], 0);
@@ -153,16 +157,18 @@ void prettyPrint(char *data, int msgLength, char *request)
             free(email);
             free(phone);
         }
+        printf("\n");
     }
     else if (requestType == GET_BLOCKED_USERS)
     {
-        printf("Blocked users: \n\n");
+        printf("\nBlocked users: \n\n");
         for (int i = 0; i < msgLength; i++)
         {
             if (data[i] == ',')
                 printf("\n");
             printf("%c", data[i]);
         }
+        printf("\n");
     }
     else if (requestType == GET_LOGS)
     {
@@ -205,6 +211,7 @@ void prettyPrint(char *data, int msgLength, char *request)
             free(date);
         }
     }
+ 
 }
 
 int expectsData(char *userInput)
@@ -217,11 +224,13 @@ int expectsData(char *userInput)
         return 2;
     else if (strcmp(userInput, "getblockedusers") == 0)
         return 2;
-    else if (strcmp(userInput, "disconectuser") == 0)
-        return 1;
-    else if (strcmp(userInput, "blockuser") == 0)
-        return 1;
-    else if (strcmp(userInput, "unblockuser") == 0)
+    else if (strncmp(userInput, "disconectuser",13) == 0)
+        return 3;
+    else if (strncmp(userInput, "blockuser",9) == 0)
+        return 3;
+    else if (strncmp(userInput, "unblockuser",11) == 0)
+        return 3;
+    else if(strcmp(userInput, "help") == 0)
         return 1;
     return 0;
 }
@@ -263,13 +272,12 @@ int main(int argc, char *argv[])
     {
         scanf("%s", userInput);
         inputCode = expectsData(userInput);
-        if (inputCode == 2)
+        inputSize = strlen(userInput);
+        rc = send(sockfd, userInput, inputSize, 0);
+        if (inputCode == 2 || inputCode == 3)
         {
-            inputSize = strlen(userInput);
-
-            rc = send(sockfd, userInput, inputSize, 0);
             while (1)
-            {
+            {                
                 valread = recv(sockfd, buffer, receiveSize, 0);
                 if (valread == -1)
                 {
@@ -310,7 +318,10 @@ int main(int argc, char *argv[])
                             receiveSize = toDownload;
                             if (toDownload == 0)
                             {
+                                if(inputCode==2)
                                 prettyPrint(packets, downloadedSoFar, userInput);
+                                else 
+                                printf("%s",packets);
                                 headerCounter = 0;
                                 memset(header, 0, 10);
                                 free(packets);
@@ -335,7 +346,7 @@ int main(int argc, char *argv[])
         }
         else if (inputCode == 1)
         {
-            printf("command %s execute\n", userInput);
+            printf(" Use 'getconnectedusers' to see all connected users\n Use 'getlogs' to see a log of all executed comands\n Use 'getusers' to see all registered users\n Use 'getblockedusers' to see all blocked users\n Use 'disconnectuser;usename' to force disconnect a user\n Use 'blockuser;username' to block a user\n Use 'unblockuser;username' to unblock a user\n");
         }
         else
         {

@@ -332,7 +332,10 @@ dataPack serializeDataLog(sqlite3_stmt *data)
                                        numberOfDigits(dateLength) +
                                        logLength +
                                        dateLength + 2);
-
+    memset(bytesResult,'\0',numberOfDigits(logLength) +
+                                       numberOfDigits(dateLength) +
+                                       logLength +
+                                       dateLength + 2);
     int cursorIndex = 0;
 
     for (int i = 0; logLengthChar[i] != '\0'; i++)
@@ -434,6 +437,7 @@ dataPack prepareResult(dataPack data[])
         free(data[i].data);
     }
     result.msgLength = finalLength;
+
     return result;
 }
 
@@ -966,10 +970,10 @@ dataPack getMessagesList(char *username, char *friendUsername, char *token)
     sqlite3_stmt *dbResult;
     const char *tail;
 
-    dataPack databaseObjectsSerialized[1000] = {0};
+    dataPack databaseObjectsSerialized[100] = {0};
     int dbObjCounter = 0;
 
-    char *query = sqlite3_mprintf("SELECT username, message, date from message inner join user on user.id=expeditor WHERE (expeditor=(SELECT user.id FROM user WHERE username = '%q') AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) OR  (expeditor=(SELECT user.id FROM user WHERE username = '%q' ) AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) LIMIT 1000;", username, friendUsername, friendUsername, username);
+    char *query = sqlite3_mprintf("SELECT username, message, date from message inner join user on user.id=expeditor WHERE (expeditor=(SELECT user.id FROM user WHERE username = '%q') AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) OR  (expeditor=(SELECT user.id FROM user WHERE username = '%q' ) AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) LIMIT 100 ORDER BY DATE;", username, friendUsername, friendUsername, username);
     sqlite3_open("CHATAPP.db", &DATABASE);
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
     while (sqlite3_step(dbResult) == SQLITE_ROW)
@@ -1037,6 +1041,12 @@ dataPack getNotFriendList(char *username, char *token)
     }
     sqlite3_close(DATABASE);
     result = prepareResult(databaseObjectsSerialized);
+    if(result.msgLength==0){
+        result.msgLength=8;
+        result.data=malloc(7);
+        memset(result.data,'\0',7);
+        strcpy(result.data,"6:NODATA");
+    }
     sqlite3_free(query);
     return result;
 }
@@ -1076,7 +1086,7 @@ dataPack getLoggedData()
     sqlite3_stmt *dbResult;
     const char *tail;
 
-    dataPack databaseObjectsSerialized[100] = {0};
+    dataPack databaseObjectsSerialized[62] = {0};
     int dbObjCounter = 0;
 
     char *query = sqlite3_mprintf("Select log,date from logging;");
@@ -1084,6 +1094,7 @@ dataPack getLoggedData()
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
     while (sqlite3_step(dbResult) == SQLITE_ROW)
     {
+        if(dbObjCounter>60) break; 
         databaseObjectsSerialized[dbObjCounter] = serializeDataLog(dbResult);
         dbObjCounter++;
     }

@@ -207,8 +207,8 @@ char *getDataConnectedUsers()
         if (CONNNECTED_USERS[i].username != 0)
         {
             for (int j = 0; j < strlen(CONNNECTED_USERS[i].username); j++)
-                result[resultCounter++] = CONNNECTED_USERS[i].username[j];
-            result[resultCounter++] = ',';
+                result[resultDataCounter++] = CONNNECTED_USERS[i].username[j];
+            result[resultDataCounter++] = ',';
         }
     }
     return result;
@@ -233,18 +233,24 @@ dataPack processAdminRequest(char *string)
     {
         char *username = getArgumentByIndex(string, 0);
         forceDisconectClient(username);
+        result.msgLength = 34;
+        result.data="31:\nThe user is now disconnected!\n";
         free(username);
     }
     else if (strcmp(request, "blockuser") == 0)
     {
         char *username = getArgumentByIndex(string, 0);
         blockUser(username);
+        result.msgLength = 29;
+        result.data="26:\nThe user is now blocked!\n";
         free(username);
     }
     else if (strcmp(request, "unblockuser") == 0)
     {
         char *username = getArgumentByIndex(string, 0);
         unblockUser(username);
+        result.msgLength = 31;
+        result.data="28:\nThe user is now unblocked!\n";
         free(username);
     }
     else if (strcmp(request, "getusers") == 0)
@@ -297,9 +303,15 @@ void handleAdminConnections(void)
                     for (int i = 0; i < valread; i++)
                         packets[downloadedSoFar++] = buffer[i];
                     dataPack result = processAdminRequest(packets);
-                    if (result.msgLength == -1)
+                    if (result.msgLength == -1){
                         break;
-                    send(clientSocket, result.data, result.msgLength, 0);
+                    }
+                    if (result.msgLength == 0){
+                        result.msgLength= 22;
+                        result.data="19:No data available!\n";
+                    }
+                       
+                    send(clientSocket, result.data, result.msgLength, 0);               
                     downloadedSoFar = 0;
                     receiveSize = 100;
                     memset(buffer, '\0', 100);
@@ -596,8 +608,6 @@ void handleClient(threadClientArguments *args)
     while (1)
     {
         valread = read(new_socket, buffer, receiveSize);
-        printf("%d\n", valread);
-        fflush(stdout);
         if (valread != 0)
         {
             if (*buffer == ':' && !gotHeader)
@@ -605,9 +615,10 @@ void handleClient(threadClientArguments *args)
                 free(buffer);
                 gotHeader = true;
                 receiveSize = stringToInt(header);
-                packets = malloc(receiveSize);
+                packets = malloc(receiveSize+1);
                 buffer = malloc(receiveSize);
                 memset(buffer, '\0', receiveSize);
+                memset(packets, '\0', receiveSize+1);
                 sprintf(logMessage, "got the ammount of bytes to read: %lu ", receiveSize);
                 logger(logMessage);
             }
@@ -641,6 +652,9 @@ void handleClient(threadClientArguments *args)
                         sprintf(logMessage, "finished reading data from client (%lu bytes)", receiveSize);
                         logger(logMessage);
                         dataPack result = processRequest(packets);
+                        send(new_socket,result.data,result.msgLength,0);
+                        if(result.msgLength>0)
+                            free(result.data);
                         if (result.msgLength == -1)
                             break;
                         headerCounter = 0;
@@ -649,6 +663,7 @@ void handleClient(threadClientArguments *args)
                         gotHeader = false;
                         downloadedSoFar = 0;
                         receiveSize = 1;
+                        buffer=malloc(1);
                     }
                     else
                     {
@@ -667,9 +682,11 @@ void handleClient(threadClientArguments *args)
 
     pthread_mutex_lock(&mutexlock);
     removeDisconectedClient(username);
-    pthread_mutex_lock(&mutexlock);
+    pthread_mutex_unlock(&mutexlock);
 
     sprintf(logMessage, "client %s has disconected", clientIp);
+    printf("Client Disconected!");
+    fflush(stdout);
     free(args->ip);
     free(args);
     close(new_socket);
@@ -683,7 +700,7 @@ int main(int argc, char **argv)
     if (!DEBUGING)
     {
         pthread_t adminHandler;
-        //pthread_create(&adminHandler, NULL, (void *)handleAdminConnections, NULL);
+        pthread_create(&adminHandler, NULL, (void *)handleAdminConnections, NULL);
         char logMessage[200] = {0};
         pthread_mutex_init(&mutexlock, NULL);
         int server_fd, new_socket, valread;
@@ -748,27 +765,18 @@ int main(int argc, char **argv)
             if (!procesing)
             {
                 new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
-                printf("%d",new_socket);
                 if(new_socket!=-1)
                 {                      
-                    // int child = fork();
-                    // if (child == 0)
-                    // {
-                        inet_ntop(AF_INET, &address.sin_addr, clientIp, INET_ADDRSTRLEN);
-                        //timeval tv;
-                        //tv.tv_sec = 0;
-                        //tv.tv_usec = 500;
-                        //setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
 
-                        if (new_socket > -1)
-                            procesing = true;
-                        else
-                        {
-                            sprintf(logMessage, "connection could not be accepted %s", clientIp);
-                            logger(logMessage);
-                            exit(1);
-                        }
-                    ///}
+                    inet_ntop(AF_INET, &address.sin_addr, clientIp, INET_ADDRSTRLEN);
+
+                    if (new_socket > -1)
+                        procesing = true;
+                    else
+                    {
+                        sprintf(logMessage, "connection could not be accepted %s", clientIp);
+                        logger(logMessage);
+                    }
                 }
             }
             if (procesing)
@@ -833,10 +841,6 @@ int main(int argc, char **argv)
                                 else
                                 {                        
                                     send(new_socket, result, 20, 0);
-                                    // timeval tv;
-                                    // tv.tv_sec = 800;
-                                    // tv.tv_usec = 0;
-                                    // setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
                                     pthread_t connection;
                                     threadClientArguments *args = malloc(sizeof(threadClientArguments));
                                     args->newSocket = new_socket;
@@ -852,7 +856,7 @@ int main(int argc, char **argv)
                                     downloadedSoFar = 0;
                                     receiveSize = 1;
                                     procesing = false;
-                                        
+                                    buffer=malloc(1);
                                 }
                                 
                                 free(result);

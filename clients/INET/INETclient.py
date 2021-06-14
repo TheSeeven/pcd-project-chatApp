@@ -88,7 +88,7 @@ class ClientInterface:
 			
 			global canSendToServer
 			while AppExit != True:
-				time.sleep(30)
+				time.sleep(10)
 				if canSendToServer == True:
 					canSendToServer = False
 					ClientConnection.sendMessageToServer(self, messageToSend)
