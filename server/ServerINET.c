@@ -596,6 +596,8 @@ void handleClient(threadClientArguments *args)
     while (1)
     {
         valread = read(new_socket, buffer, receiveSize);
+        printf("%d\n", valread);
+        fflush(stdout);
         if (valread != 0)
         {
             if (*buffer == ':' && !gotHeader)
@@ -681,7 +683,7 @@ int main(int argc, char **argv)
     if (!DEBUGING)
     {
         pthread_t adminHandler;
-        pthread_create(&adminHandler, NULL, (void *)handleAdminConnections, NULL);
+        //pthread_create(&adminHandler, NULL, (void *)handleAdminConnections, NULL);
         char logMessage[200] = {0};
         pthread_mutex_init(&mutexlock, NULL);
         int server_fd, new_socket, valread;
@@ -746,16 +748,17 @@ int main(int argc, char **argv)
             if (!procesing)
             {
                 new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
+                printf("%d",new_socket);
                 if(new_socket!=-1)
                 {                      
-                    int child = fork();
-                    if (child == 0)
-                    {
+                    // int child = fork();
+                    // if (child == 0)
+                    // {
                         inet_ntop(AF_INET, &address.sin_addr, clientIp, INET_ADDRSTRLEN);
-                        timeval tv;
-                        tv.tv_sec = 0;
-                        tv.tv_usec = 500;
-                        setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
+                        //timeval tv;
+                        //tv.tv_sec = 0;
+                        //tv.tv_usec = 500;
+                        //setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
 
                         if (new_socket > -1)
                             procesing = true;
@@ -765,7 +768,7 @@ int main(int argc, char **argv)
                             logger(logMessage);
                             exit(1);
                         }
-                    }
+                    ///}
                 }
             }
             if (procesing)
@@ -779,9 +782,10 @@ int main(int argc, char **argv)
                         free(buffer);
                         gotHeader = true;
                         receiveSize = stringToInt(header);
-                        packets = malloc(receiveSize);
+                        packets = malloc(receiveSize+1);
                         buffer = malloc(receiveSize);
                         memset(buffer, '\0', receiveSize);
+                        memset(packets, '\0', receiveSize+1);
                     }
                     else if ((*buffer >= '0' && *buffer <= '9') && !gotHeader)
                     {
@@ -809,6 +813,14 @@ int main(int argc, char **argv)
                             if (toDownload == 0)
                             {
                                 char *username = getArgumentByIndex(packets, 0);
+                                if (isBlocked(username)){
+                                    close(new_socket);
+                                    sprintf(logMessage, "client %s could not be accepted (user blocked)", clientIp);
+                                    logger(logMessage);
+                                }
+                                else{
+                                    
+                                
                                 char *password = getArgumentByIndex(packets, 1);
                                 char *result = loginUser(username, password);
                                 if (result[0] == -2)
@@ -819,40 +831,34 @@ int main(int argc, char **argv)
                                     logger(logMessage);
                                 }
                                 else
-                                {
-                                    if (!isBlocked(username))
-                                    {
-                                        send(new_socket, result, 20, 0);
-                                        timeval tv;
-                                        tv.tv_sec = 800;
-                                        tv.tv_usec = 0;
-                                        setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
-                                        pthread_t connection;
-                                        threadClientArguments *args = malloc(sizeof(threadClientArguments));
-                                        args->newSocket = new_socket;
-                                        args->serverFd = server_fd;
-                                        args->ip = (char *)malloc(INET_ADDRSTRLEN);
-                                        args->username = username;
-                                        memset(args->ip, '\0', INET_ADDRSTRLEN);
-                                        pthread_create(&connection, NULL, (void *)handleClient, args);
-                                        headerCounter = 0;
-                                        memset(header, 0, 10);
-                                        free(packets);
-                                        gotHeader = false;
-                                        downloadedSoFar = 0;
-                                        receiveSize = 1;
-                                        procesing = false;
-                                    }
-                                    else
-                                    {
-                                        close(new_socket);
-                                        sprintf(logMessage, "client %s could not be accepted (user blocked)", clientIp);
-                                        logger(logMessage);
-                                    }
+                                {                        
+                                    send(new_socket, result, 20, 0);
+                                    // timeval tv;
+                                    // tv.tv_sec = 800;
+                                    // tv.tv_usec = 0;
+                                    // setsockopt(server_fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv);
+                                    pthread_t connection;
+                                    threadClientArguments *args = malloc(sizeof(threadClientArguments));
+                                    args->newSocket = new_socket;
+                                    args->serverFd = server_fd;
+                                    args->ip = (char *)malloc(INET_ADDRSTRLEN);
+                                    args->username = username;
+                                    memset(args->ip, '\0', INET_ADDRSTRLEN);
+                                    pthread_create(&connection, NULL, (void *)handleClient, args);
+                                    headerCounter = 0;
+                                    memset(header, 0, 10);
+                                    free(packets);
+                                    gotHeader = false;
+                                    downloadedSoFar = 0;
+                                    receiveSize = 1;
+                                    procesing = false;
+                                        
                                 }
-                                free(password);
+                                
                                 free(result);
-                                exit(0);
+                                free(password);
+                                
+                                }
                             }
                             else
                             {

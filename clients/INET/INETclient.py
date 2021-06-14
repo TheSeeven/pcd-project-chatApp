@@ -19,7 +19,7 @@ insertUser='insertuser'
 AppExit = False
 
 global getNotFriendsList
-getNotFriendsList='getnotfriendslist'
+getNotFriendsList='getnotfriendlist'
 
 global getFriendList
 getFriendList='getfriendlist'
@@ -31,7 +31,7 @@ global isWaiting
 isWaiting = False
 
 global s
-s = socket.socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 class ClientInterface:
 
 	def __init__(self):
@@ -77,34 +77,37 @@ class ClientInterface:
 		
 		############################################# Thread Functions ###########################################
 
-		def getUserLists(threadName, username, token):
+		def getUserLists(threadName, token):
 			global getFriendList
 			global getNotFriendsList
-			credentialsLength = str(len(getNotFriendsList) + len(username) + len(token) + 2)
-			messageToSend = credentialsLength + ':' + getNotFriendsList + ';' + username + ',' + token
-
-			credentialsLength2 = str(len(getFriendList) + len(username) + len(token) + 2)
-			messageToSend2 = credentialsLength2 + ':' + getFriendList + ';' + username + ',' + token
-
+			credentialsLength = str(len(getNotFriendsList) + len(self.currentUser.get()) + len(token) + 2)
+			messageToSend = credentialsLength + ':' + getNotFriendsList + ';' + self.currentUser.get() + ',' + token
+			
+			credentialsLength2 = str(len(getFriendList) + len(self.currentUser.get()) + len(token) + 2)
+			messageToSend2 = credentialsLength2 + ':' + getFriendList + ';' + self.currentUser.get() + ',' + token
+			
 			global canSendToServer
 			while AppExit != True:
 				time.sleep(30)
 				if canSendToServer == True:
 					canSendToServer = False
 					ClientConnection.sendMessageToServer(self, messageToSend)
-					UserString = ClientConnection.listenToMessages()
+					print(messageToSend)
+					UserString = ClientConnection.listenToMessages(self)
 					UserList = list(UserString.split(','))
 					self.currentUsersList.delete(0, END)
 					for i in range(0, len(UserList)):
 						self.currentUsersList.insert(END, UserList[i])
 
 					ClientConnection.sendMessageToServer(self, messageToSend2)
-					UserString2 = ClientConnection.listenToMessages()
+					print(messageToSend2)
+					UserString2 = ClientConnection.listenToMessages(self)
 					UserList2 = list(UserString2.split(','))
 					self.friendsList.delete(0, END)
 					for i in range(0, len(UserList2)):
 						self.friendsList.insert(END, UserList2[i])
 					canSendToServer = True
+					print('Thread1 Successfully sent message to server!!!')
 
 
 		def getMessages():
@@ -113,7 +116,7 @@ class ClientInterface:
 			while AppExit != True:
 				while isWaiting == False:
 					time.sleep(5)
-					receivedmessage=ClientConnection.listenToMessages()
+					receivedmessage=ClientConnection.listenToMessages(self)
 					receivedmessage= '\n' + receivedmessage
 					self.messageHistory.configure(state='normal')
 					self.messageHistory.insert(END, receivedmessage)
@@ -134,20 +137,23 @@ class ClientInterface:
 				credentialsLength = usernameLength+passwordLength+2
 				canSendToServer = False
 				messageToSend = str(credentialsLength) + ':' + ';' + self.usernameLoginEntry.get() + ',' + self.passwordLoginEntry.get()
+				print(messageToSend)
 				isWaiting = True
 				loginFailed = ClientConnection.sendMessageToServer(self, messageToSend)
 				canSendToServer = True
 				isWaiting = False
-				if(loginFailed == True):
+				if(loginFailed == False):
 
-					receivedMessage = ClientConnection.listenToMessages()
+					receivedMessage = ClientConnection.listenToLoginInfo(self)
+					print(receivedMessage)
 					
 					if(receivedMessage == ''):
 						self.failMessage.grid(row=2, column=1, sticky="nsew")
 					else:
-						userToken = receivedMessage
+						userToken = receivedMessage.decode('utf-8')
+						print(userToken)
 
-						threading._start_new_thread(getUserLists,('Lists update Thread',self.currentUser.get(), userToken))
+						threading._start_new_thread(getUserLists,('Lists update Thread', userToken),)
 						threading._start_new_thread(getMessages,)
 						
 						self.currentUser.set(self.usernameLoginEntry.get())
@@ -205,7 +211,7 @@ class ClientInterface:
 				ClientConnection.sendMessageToServer(self, messageToSend)
 				isWaiting = True
 				returnValue=''
-				returnValue = ClientConnection.listenToMessages()
+				returnValue = ClientConnection.listenToMessages(self)
 				canSendToServer = True
 				isWaiting = False
 				if(returnValue != ''):
@@ -311,16 +317,16 @@ class ClientInterface:
 
 			Button(changeRequestButtons, text="Change Password") .grid(row=0, column=3)
 
-			# User Profile Icon/Image
-			my_pic = Image.open("C:/Users/Mile/Desktop/rose.png")
+			# # User Profile Icon/Image
+			# my_pic = Image.open("C:/Users/Mile/Desktop/rose.png")
 
-			resized = my_pic.resize((100, 100), Image.ANTIALIAS)
+			# resized = my_pic.resize((100, 100), Image.ANTIALIAS)
 
-			self.new_pic = ImageTk.PhotoImage(resized)
+			# self.new_pic = ImageTk.PhotoImage(resized)
 
-			my_label= Label(changeRequestButtons , image=self.new_pic)
-			my_label.grid(row=0, column=0)
-			my_label.update()
+			# my_label= Label(changeRequestButtons , image=self.new_pic)
+			# my_label.grid(row=0, column=0)
+			# my_label.update()
 
 			# User currently talking to
 			self.curUserLabel = Label(self.interface, textvariable=self.otherUser, bg="gray10", fg="white", font="none 8 bold") .grid(row=0, column=0, sticky=S)
@@ -478,19 +484,22 @@ class ClientConnection:
 	def __init__(self):
 		#create an INET, STREAMing socket
 		global s
-		try:
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		except socket.error:
-			print('Failed to create socket')
-			sys.exit()
+		# try:
+		# 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		# except socket.error:
+		# 	print('Failed to create socket')
+		# 	sys.exit()
 			
 		print('Socket Created')
 
-		host = 'localhost'
+		host = '127.0.0.1'
 		port = 6000             
 		
 		#Connect to remote server
-		#s.connect((host , port))
+		try:
+			s.connect((host , port))
+		except:
+			print('failed to connect!')
 
 		print('Socket Connected to ' + host + ' on ip ' + host + ':' + str(port))
 
@@ -506,16 +515,20 @@ class ClientConnection:
 		packet = ""
 		try:
 			while(True):
-				buffer.recv(receiveSize)
+				try:
+					buffer = s.recv(receiveSize)
+				except Exception as i:
+					print(i)
+					
 				if len(buffer) :
 					if buffer == ':' and not gotHeader:
 						buffer=""
 						gotHeader=True
 						receiveSize = int(header)
-					elif buffer >= '0' or buffer >= '9' and not gotHeader:
-						header+=buffer
+					elif buffer >= b'0' or buffer >= b'9' and not gotHeader:
+						header+=str(buffer)
 						buffer=""
-					elif  buffer < '0' or buffer >'9' and not gotHeader:
+					elif  buffer < b'0' or buffer >b'9' and not gotHeader:
 						buffer= ""
 						break
 					else:
@@ -534,6 +547,21 @@ class ClientConnection:
 
 
 		return(packet)
+
+	def listenToLoginInfo(self):
+		global s
+		buffer= ""
+		try:
+			
+			try:
+				buffer = s.recv(20)
+			except Exception as i:
+				print(i)
+				
+			return buffer
+			
+		except socket.error:
+			return("Failed to receive message")
 
 	#Send some data to remote server
 	def sendMessageToServer(self,message):
