@@ -10,7 +10,7 @@ from PIL import ImageTk, Image
 import threading
 import time
 
-userToken='jd30jc0sjh3'
+userToken=''
 addFriend= 'addfriend'
 removeFriend= 'removefriend'
 getHistroy= 'getmessageslist'
@@ -18,93 +18,20 @@ sendMessage= 'sendmessage'
 insertUser='insertuser'
 AppExit = False
 
-HOST = 'localhost'
-PORT = 6000   
-
-class ClientConnection: 
-	def __init__(self):
-		self.s = None
-		try:
-			self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		except socket.error:
-			print('Failed to create socket')
-			sys.exit()
-			
-		print('Socket Created')
-
-		#Connect to remote server
-		self.s.connect((HOST , PORT))
-		print('Socket Connected to ' + HOST + ' on ip ' + HOST + ':' + str(PORT))
-
-	#Now receive data
-	def listenToMessages(self):
-		toDownload = 0
-		header =""
-		gotHeader=False
-		receiveSize=1
-		downloadedSoFar=0
-		buffer= ""
-		packet = ""
-		try:
-			while(True):
-				valread = self.s.recv(receiveSize)
-				if valread != 0 :
-					if buffer == ':' and not gotHeader:
-						buffer=""
-						gotHeader=True
-						receiveSize = int(header)
-					elif buffer >= '0' or buffer >= '9' and not gotHeader:
-						header+=buffer
-						buffer=""
-					elif  buffer < '0' or buffer >'9' and not gotHeader:
-						buffer= ""
-						break;
-					else:
-						if downloadedSoFar<receiveSize:
-							packet+=buffer
-							buffer=""
-							toDownload = receiveSize - downloadedSoFar
-							if toDownload==0:
-								receiveSize=1
-								downloadedSoFar=0
-								gotHeader=False
-								return packet
-				else:
-					break
-		except socket.error:
-			return("Failed to receive message")
-
-
-		return(packet)
-
-	#Send some data to remote server
-	def sendMessageToServer(self,message):
-		global s
-		message = bytes(message,'utf-8')
-		try :
-			#Set the whole string
-			s.sendall(message)
-		except socket.error:
-			#Send failed
-			return(True)
-			
-		return(False)
-
-	def CloseSocket(self):
-		global s
-		s.close()
-
-Conn = ClientConnection()
-
-
+global getNotFriendsList
 getNotFriendsList='getnotfriendslist'
+
+global getFriendList
 getFriendList='getfriendlist'
+
+global canSendToServer
 canSendToServer = True
+
+global isWaiting
 isWaiting = False
-s = None
 
-
-
+global s
+s = socket.socket
 class ClientInterface:
 
 	def __init__(self):
@@ -151,14 +78,15 @@ class ClientInterface:
 		############################################# Thread Functions ###########################################
 
 		def getUserLists(threadName, username, token):
-			global getFriendList,canSendToServer,getNotFriendsList
-
-
+			global getFriendList
+			global getNotFriendsList
 			credentialsLength = str(len(getNotFriendsList) + len(username) + len(token) + 2)
 			messageToSend = credentialsLength + ':' + getNotFriendsList + ';' + username + ',' + token
 
 			credentialsLength2 = str(len(getFriendList) + len(username) + len(token) + 2)
 			messageToSend2 = credentialsLength2 + ':' + getFriendList + ';' + username + ',' + token
+
+			global canSendToServer
 			while AppExit != True:
 				time.sleep(30)
 				if canSendToServer == True:
@@ -198,7 +126,8 @@ class ClientInterface:
 
 		# Login check function
 		def loginCheck():
-			global isWaiting,canSendToServer
+			global isWaiting
+			global canSendToServer
 			if(self.usernameLoginEntry.get() != '' or self.passwordLoginEntry.get() != ''):
 				usernameLength = len(self.usernameLoginEntry.get())
 				passwordLength = len(self.passwordLoginEntry.get())
@@ -210,12 +139,9 @@ class ClientInterface:
 				canSendToServer = True
 				isWaiting = False
 				if(loginFailed == True):
-					counter=0
-					while counter <= 100:
-						#receivedMessage = ClientConnection.listenToMessages()
-						receivedMessage='Hei'
-						counter=counter+1
 
+					receivedMessage = ClientConnection.listenToMessages()
+					
 					if(receivedMessage == ''):
 						self.failMessage.grid(row=2, column=1, sticky="nsew")
 					else:
@@ -267,7 +193,8 @@ class ClientInterface:
 
 		# select with whom to speak and send to server a request for the message History!
 		def ChatWith(): 
-			global canSendToServer,isWaiting
+			global canSendToServer
+			global isWaiting
 			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
 			if check in fullList:
@@ -544,9 +471,88 @@ class ClientInterface:
 		self.interface.mainloop()
 
 ##########################################################################################################################
+
 ################################################# Connection #############################################################
+class ClientConnection:
+
+	def __init__(self):
+		#create an INET, STREAMing socket
+		global s
+		try:
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		except socket.error:
+			print('Failed to create socket')
+			sys.exit()
+			
+		print('Socket Created')
+
+		host = 'localhost'
+		port = 6000             
+		
+		#Connect to remote server
+		#s.connect((host , port))
+
+		print('Socket Connected to ' + host + ' on ip ' + host + ':' + str(port))
+
+	#Now receive data
+	def listenToMessages(self):
+		global s
+		toDownload = 0
+		header =""
+		gotHeader=False
+		receiveSize=1
+		downloadedSoFar=0
+		buffer= ""
+		packet = ""
+		try:
+			while(True):
+				buffer.recv(receiveSize)
+				if len(buffer) :
+					if buffer == ':' and not gotHeader:
+						buffer=""
+						gotHeader=True
+						receiveSize = int(header)
+					elif buffer >= '0' or buffer >= '9' and not gotHeader:
+						header+=buffer
+						buffer=""
+					elif  buffer < '0' or buffer >'9' and not gotHeader:
+						buffer= ""
+						break
+					else:
+						if downloadedSoFar<receiveSize:
+							packet+=buffer
+							buffer=""
+							toDownload = receiveSize - downloadedSoFar
+							if toDownload==0:
+								return packet
+				else:
+					break
+			
+
+		except socket.error:
+			return("Failed to receive message")
+
+
+		return(packet)
+
+	#Send some data to remote server
+	def sendMessageToServer(self,message):
+		global s
+		message = bytes(message,'utf-8')
+		try :
+			#Set the whole string
+			s.sendall(message)
+		except socket.error:
+			#Send failed
+			return(True)
+			
+		return(False)
+
+	def CloseSocket(self):
+		global s
+		s.close()
 
 #############################################################################################
 
-
+Conn = ClientConnection()
 GUI = ClientInterface()
