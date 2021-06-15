@@ -274,9 +274,10 @@ int main(int argc, char *argv[])
         scanf("%s", userInput);
         inputCode = expectsData(userInput);
         inputSize = strlen(userInput);
-        rc = send(sockfd, userInput, inputSize, 0);
+        
         if (inputCode == 2 || inputCode == 3)
         {
+            rc = send(sockfd, userInput, inputSize, 0);
             while (1)
             {                
                 valread = recv(sockfd, buffer, receiveSize, 0);
