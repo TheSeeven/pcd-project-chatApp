@@ -233,38 +233,35 @@ dataPack serializeDataFriend(sqlite3_stmt *data)
 {
     dataPack result;
     char *username = (char *)sqlite3_column_text(data, 0);
-    char *email = (char *)sqlite3_column_text(data, 1);
-    char *phone = (char *)sqlite3_column_text(data, 2);
-    char *date = (char *)sqlite3_column_text(data, 4);
-    char *profilePicture = (char *)sqlite3_column_blob(data, 3);
+    // char *email = (char *)sqlite3_column_text(data, 1);
+    // char *phone = (char *)sqlite3_column_text(data, 2);
+    // char *date = (char *)sqlite3_column_text(data, 4);
+    // char *profilePicture = (char *)sqlite3_column_blob(data, 3);
 
     int usernameLength = strlen(username);
-    int emailLength = strlen(email);
-    int phoneLength = strlen(phone);
-    int profilePictureLength = sqlite3_column_bytes(data, 3);
-    int dateLength = strlen(date);
+    // int emailLength = strlen(email);
+    // int phoneLength = strlen(phone);
+    // int profilePictureLength = sqlite3_column_bytes(data, 3);
+    // int dateLength = strlen(date);
 
     char usernameLengthChar[10] = {0};
-    char emailLengthChar[10] = {0};
-    char phoneLengthChar[10] = {0};
-    char profilePictureLengthChar[10] = {0};
-    char dateLengthChar[10] = {0};
+    // char emailLengthChar[10] = {0};
+    // char phoneLengthChar[10] = {0};
+    // char profilePictureLengthChar[10] = {0};
+    // char dateLengthChar[10] = {0};
     intToString(usernameLength, usernameLengthChar);
-    intToString(emailLength, emailLengthChar);
-    intToString(phoneLength, phoneLengthChar);
-    intToString(profilePictureLength, profilePictureLengthChar);
-    intToString(dateLength, dateLengthChar);
+    // intToString(emailLength, emailLengthChar);
+    // intToString(phoneLength, phoneLengthChar);
+    // intToString(profilePictureLength, profilePictureLengthChar);
+    // intToString(dateLength, dateLengthChar);
 
     char *bytesResult = (char *)malloc(numberOfDigits(usernameLength) +
-                                       numberOfDigits(emailLength) +
-                                       numberOfDigits(phoneLength) +
-                                       numberOfDigits(profilePictureLength) +
-                                       numberOfDigits(dateLength) +
-                                       usernameLength +
-                                       emailLength +
-                                       phoneLength +
-                                       profilePictureLength +
-                                       dateLength + 5);
+                                       usernameLength + 1);
+                                    //    emailLength +
+                                    //    phoneLength +
+                                    //    profilePictureLength +
+                                    //    dateLength +
+                                    
 
     int cursorIndex = 0;
 
@@ -272,42 +269,42 @@ dataPack serializeDataFriend(sqlite3_stmt *data)
         bytesResult[cursorIndex++] = usernameLengthChar[i];
     bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; emailLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = emailLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; emailLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = emailLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; phoneLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = phoneLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; phoneLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = phoneLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; profilePictureLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = profilePictureLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; profilePictureLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = profilePictureLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; dateLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = dateLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; dateLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = dateLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
     for (int i = 0; i < usernameLength; i++)
         bytesResult[cursorIndex++] = username[i];
-    for (int i = 0; i < emailLength; i++)
-        bytesResult[cursorIndex++] = email[i];
-    for (int i = 0; i < phoneLength; i++)
-        bytesResult[cursorIndex++] = phone[i];
-    for (int i = 0; i < profilePictureLength; i++)
-        bytesResult[cursorIndex++] = profilePicture[i];
-    for (int i = 0; i < dateLength; i++)
-        bytesResult[cursorIndex++] = date[i];
-    int msgLength = numberOfDigits(usernameLength) +
-                    numberOfDigits(emailLength) +
-                    numberOfDigits(phoneLength) +
-                    numberOfDigits(profilePictureLength) +
-                    numberOfDigits(dateLength) +
-                    usernameLength +
-                    emailLength +
-                    phoneLength +
-                    profilePictureLength +
-                    dateLength + 5;
+    // for (int i = 0; i < emailLength; i++)
+    //     bytesResult[cursorIndex++] = email[i];
+    // for (int i = 0; i < phoneLength; i++)
+    //     bytesResult[cursorIndex++] = phone[i];
+    // for (int i = 0; i < profilePictureLength; i++)
+    //     bytesResult[cursorIndex++] = profilePicture[i];
+    // for (int i = 0; i < dateLength; i++)
+    //     bytesResult[cursorIndex++] = date[i];
+    int msgLength = numberOfDigits(usernameLength) + usernameLength + 1;
+                    // numberOfDigits(emailLength) +
+                    // numberOfDigits(phoneLength) +
+                    // numberOfDigits(profilePictureLength) +
+                    // numberOfDigits(dateLength) +
+                    
+                    // emailLength +
+                    // phoneLength +
+                    // profilePictureLength +
+                    // dateLength + 
 
     result.data = bytesResult;
     result.msgLength = msgLength;
@@ -428,6 +425,7 @@ dataPack prepareResult(dataPack data[])
         finalLength += data[i].msgLength;
     }
     result.data = (char *)malloc(finalLength);
+    memset(result.data, '\0', finalLength);
     for (int i = 0; data[i].msgLength != 0; i++)
     {
         for (int j = 0; j < data[i].msgLength; j++)
@@ -536,52 +534,52 @@ dataPack serializeDataUsername(sqlite3_stmt *data)
 dataPack serializeDataMessage(sqlite3_stmt *data)
 {
     dataPack result;
-    char *username = (char *)sqlite3_column_text(data, 0);
+    //char *username = (char *)sqlite3_column_text(data, 0);
     char *message = (char *)sqlite3_column_text(data, 1);
-    char *date = (char *)sqlite3_column_text(data, 2);
+    //char *date = (char *)sqlite3_column_text(data, 2);
 
-    int usernameLength = strlen(username);
+    //int usernameLength = strlen(username);
     int messageLength = strlen(message);
-    int dateLength = strlen(date);
+    //int dateLength = strlen(date);
 
     char usernameLengthChar[10] = {0};
     char messageLengthChar[10] = {0};
     char dateLengthChar[10] = {0};
 
-    intToString(usernameLength, usernameLengthChar);
+    //intToString(usernameLength, usernameLengthChar);
     intToString(messageLength, messageLengthChar);
-    intToString(dateLength, dateLengthChar);
+    //intToString(dateLength, dateLengthChar);
 
-    char *bytesResult = (char *)malloc(numberOfDigits(usernameLength) +
+    char *bytesResult = (char *)malloc(//numberOfDigits(usernameLength) +
                                        numberOfDigits(messageLength) +
-                                       numberOfDigits(dateLength) +
-                                       usernameLength +
-                                       messageLength +
-                                       dateLength + 3);
+                                       //numberOfDigits(dateLength) +
+                                       //usernameLength +
+                                       messageLength + 3);
+                                       //dateLength +
 
     int cursorIndex = 0;
 
-    for (int i = 0; usernameLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = usernameLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; usernameLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = usernameLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
     for (int i = 0; messageLengthChar[i] != '\0'; i++)
         bytesResult[cursorIndex++] = messageLengthChar[i];
     bytesResult[cursorIndex++] = ';';
-    for (int i = 0; dateLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = dateLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; dateLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = dateLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; i < usernameLength; i++)
-        bytesResult[cursorIndex++] = username[i];
+    // for (int i = 0; i < usernameLength; i++)
+    //     bytesResult[cursorIndex++] = username[i];
     for (int i = 0; i < messageLength; i++)
         bytesResult[cursorIndex++] = message[i];
-    for (int i = 0; i < dateLength; i++)
-        bytesResult[cursorIndex++] = date[i];
-    int msgLength = numberOfDigits(usernameLength) +
-                    numberOfDigits(dateLength) +
+    // for (int i = 0; i < dateLength; i++)
+    //     bytesResult[cursorIndex++] = date[i];
+    int msgLength = //numberOfDigits(usernameLength) +
+                    //numberOfDigits(dateLength) +
                     numberOfDigits(messageLength) +
-                    usernameLength +
-                    dateLength +
+                    //usernameLength +
+                    //dateLength +
                     messageLength + 3;
 
     result.data = bytesResult;
@@ -607,67 +605,56 @@ dataPack serializeDataNotFriend(sqlite3_stmt *data)
 {
     dataPack result;
     char *username = (char *)sqlite3_column_text(data, 0);
-    char *email = (char *)sqlite3_column_text(data, 1);
-    char *phone = (char *)sqlite3_column_text(data, 2);
-    char *profilePicture = (char *)sqlite3_column_blob(data, 3);
+    // char *email = (char *)sqlite3_column_text(data, 1);
+    // char *phone = (char *)sqlite3_column_text(data, 2);
+    // char *profilePicture = (char *)sqlite3_column_blob(data, 3);
 
     int usernameLength = strlen(username);
-    int emailLength = strlen(email);
-    int phoneLength = strlen(phone);
-    int profilePictureLength = sqlite3_column_bytes(data, 3);
+    // int emailLength = strlen(email);
+    // int phoneLength = strlen(phone);
+    // int profilePictureLength = sqlite3_column_bytes(data, 3);
 
     char usernameLengthChar[10] = {0};
-    char emailLengthChar[10] = {0};
-    char phoneLengthChar[10] = {0};
-    char profilePictureLengthChar[10] = {0};
+    // char emailLengthChar[10] = {0};
+    // char phoneLengthChar[10] = {0};
+    // char profilePictureLengthChar[10] = {0};
     intToString(usernameLength, usernameLengthChar);
-    intToString(emailLength, emailLengthChar);
-    intToString(phoneLength, phoneLengthChar);
-    intToString(profilePictureLength, profilePictureLengthChar);
+    // intToString(emailLength, emailLengthChar);
+    // intToString(phoneLength, phoneLengthChar);
+    // intToString(profilePictureLength, profilePictureLengthChar);
 
-    char *bytesResult = (char *)malloc(numberOfDigits(usernameLength) +
-                                       numberOfDigits(emailLength) +
-                                       numberOfDigits(phoneLength) +
-                                       numberOfDigits(profilePictureLength) +
-                                       usernameLength +
-                                       emailLength +
-                                       phoneLength +
-                                       profilePictureLength + 4);
-
+    char *bytesResult = (char *)malloc(numberOfDigits(usernameLength) +                                   
+                                       usernameLength + 5);
+    memset(bytesResult, '\0', numberOfDigits(usernameLength) +
+                                       usernameLength + 5);
     int cursorIndex = 0;
 
     for (int i = 0; usernameLengthChar[i] != '\0'; i++)
         bytesResult[cursorIndex++] = usernameLengthChar[i];
     bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; emailLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = emailLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; emailLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = emailLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; phoneLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = phoneLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; phoneLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = phoneLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
-    for (int i = 0; profilePictureLengthChar[i] != '\0'; i++)
-        bytesResult[cursorIndex++] = profilePictureLengthChar[i];
-    bytesResult[cursorIndex++] = ';';
+    // for (int i = 0; profilePictureLengthChar[i] != '\0'; i++)
+    //     bytesResult[cursorIndex++] = profilePictureLengthChar[i];
+    // bytesResult[cursorIndex++] = ';';
 
     for (int i = 0; i < usernameLength; i++)
         bytesResult[cursorIndex++] = username[i];
-    for (int i = 0; i < emailLength; i++)
-        bytesResult[cursorIndex++] = email[i];
-    for (int i = 0; i < phoneLength; i++)
-        bytesResult[cursorIndex++] = phone[i];
-    for (int i = 0; i < profilePictureLength; i++)
-        bytesResult[cursorIndex++] = profilePicture[i];
+    // for (int i = 0; i < emailLength; i++)
+    //     bytesResult[cursorIndex++] = email[i];
+    // for (int i = 0; i < phoneLength; i++)
+    //     bytesResult[cursorIndex++] = phone[i];
+    // for (int i = 0; i < profilePictureLength; i++)
+    //     bytesResult[cursorIndex++] = profilePicture[i];
     int msgLength = numberOfDigits(usernameLength) +
-                    numberOfDigits(emailLength) +
-                    numberOfDigits(phoneLength) +
-                    numberOfDigits(profilePictureLength) +
-                    usernameLength +
-                    emailLength +
-                    phoneLength +
-                    profilePictureLength + 4;
+                    usernameLength + 1;
 
     result.data = bytesResult;
     result.msgLength = msgLength;
@@ -919,7 +906,7 @@ dataPack getFriendList(char *username, char *token)
     dataPack databaseObjectsSerialized[100] = {0};
     int dbObjCounter = 0;
 
-    char *query = sqlite3_mprintf("Select user.username, user.email, user.phone, user.profilePicture, friends.date from friends INNER JOIN user on friends.friend_id= user.id where friends.id=(SELECT user.id FROM user WHERE username = '%q' );", username);
+    char *query = sqlite3_mprintf("Select user.username from friends INNER JOIN user on friends.friend_id= user.id where friends.id=(SELECT user.id FROM user WHERE username = '%q' );", username);
     sqlite3_open("CHATAPP.db", &DATABASE);
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
     while (sqlite3_step(dbResult) == SQLITE_ROW)
@@ -973,7 +960,7 @@ dataPack getMessagesList(char *username, char *friendUsername, char *token)
     dataPack databaseObjectsSerialized[100] = {0};
     int dbObjCounter = 0;
 
-    char *query = sqlite3_mprintf("SELECT username, message, date from message inner join user on user.id=expeditor WHERE (expeditor=(SELECT user.id FROM user WHERE username = '%q') AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) OR  (expeditor=(SELECT user.id FROM user WHERE username = '%q' ) AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) LIMIT 100 ORDER BY DATE;", username, friendUsername, friendUsername, username);
+    char *query = sqlite3_mprintf("SELECT message from message inner join user on user.id=expeditor WHERE (expeditor=(SELECT user.id FROM user WHERE username = '%q') AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) OR  (expeditor=(SELECT user.id FROM user WHERE username = '%q' ) AND receiver=(SELECT user.id FROM user WHERE username = '%q' )) LIMIT 100 ORDER BY DATE;", username, friendUsername, friendUsername, username);
     sqlite3_open("CHATAPP.db", &DATABASE);
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
     while (sqlite3_step(dbResult) == SQLITE_ROW)
@@ -1031,7 +1018,7 @@ dataPack getNotFriendList(char *username, char *token)
     dataPack databaseObjectsSerialized[100] = {0};
     int dbObjCounter = 0;
 
-    char *query = sqlite3_mprintf("Select user.username, user.email, user.phone, user.profilePicture from user left join (Select friends.friend_id,user.username, user.email, user.phone, user.profilePicture from user inner join friends on friends.id=user.id where friends.id=(SELECT user.id FROM user WHERE username = '%q')) as x on user.id=x.friend_id where x.friend_id is null and user.username!='%q';", username, username);
+    char *query = sqlite3_mprintf("Select user.username from user left join (Select friends.friend_id,user.username from user inner join friends on friends.id=user.id where friends.id=(SELECT user.id FROM user WHERE username = '%q')) as x on user.id=x.friend_id where x.friend_id is null and user.username!='%q';", username, username);
     sqlite3_open("CHATAPP.db", &DATABASE);
     sqlite3_prepare_v2(DATABASE, query, -1, &dbResult, &tail);
     while (sqlite3_step(dbResult) == SQLITE_ROW)

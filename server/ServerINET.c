@@ -579,8 +579,9 @@ dataPack processRequest(char *string)
     return result;
 }
 
-void handleClient(threadClientArguments *args)
+void* handleClient(threadClientArguments *args)
 {
+
 
     char logMessage[200] = {0};
     int new_socket = args->newSocket;
@@ -605,8 +606,10 @@ void handleClient(threadClientArguments *args)
     char *packets;
     int downloadedSoFar = 0;
     int toDownload = 0;
+    
     while (1)
     {
+        fflush(stdout);
         valread = read(new_socket, buffer, receiveSize);
         if (valread != 0)
         {
@@ -652,6 +655,7 @@ void handleClient(threadClientArguments *args)
                         sprintf(logMessage, "finished reading data from client (%lu bytes)", receiveSize);
                         logger(logMessage);
                         dataPack result = processRequest(packets);
+                        sleep(1);
                         send(new_socket,result.data,result.msgLength,0);
                         if(result.msgLength>0)
                             free(result.data);
@@ -882,48 +886,7 @@ int main(int argc, char **argv)
         }
     }
 
-    // // sprintf(logMessage, "server closed");
-    // logger(logMessage);
     pthread_mutex_destroy(&mutexlock);
-
-    // char *string = malloc(20);
-    // memset(string, 0, 20);
-    // // strcpy(string, "getconnectedusers;");
-    // char *string2 = malloc(10);
-    // memset(string2, 0, 10);
-    // strcpy(string2, "getlogs;");
-    // char *string3 = malloc(11);
-    // memset(string3, 0, 11);
-    // strcpy(string3, "getusers;");
-    // char *string4 = malloc(18);
-    // memset(string4, 0, 18);
-    // strcpy(string4, "getblockedusers;");
-
-    // char *username = malloc(9);
-    // memset(username, 0, 9);
-    // strcpy(username, "qwertyui");
-    // char *username2 = malloc(10);
-    // memset(username2, 0, 10);
-    // strcpy(username2, "zaqxswcde");
-    // char *username3 = malloc(10);
-    // memset(username3, 0, 10);
-    // strcpy(username3, "edcrfvtgb");
-
-    // connectClient(username, 45);
-    // connectClient(username2, 50);
-    // blockUser(username3);
-
-    // dataPack result = processAdminRequest(string);
-    // dataPack result2 = processAdminRequest(string2);
-    // printf("\n\n%s\n\n\n\n", result2.data);
-    // fflush(stdout);
-
-    // dataPack result3 = processAdminRequest(string3);
-    // printf("\n\n\n\n%s\n\n\n\n", result3.data);
-    // fflush(stdout);
-    // dataPack result4 = processAdminRequest(string4);
-    // printf("%s\n", result.data);
-    // fflush(stdout);
 
     return 0;
 }

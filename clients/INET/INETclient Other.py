@@ -10,7 +10,7 @@ from PIL import ImageTk, Image
 import threading
 import time
 
-userToken=''
+global userToken
 addFriend= 'addfriend'
 removeFriend= 'removefriend'
 getHistroy= 'getmessageslist'
@@ -32,6 +32,7 @@ isWaiting = False
 
 global s
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
 class ClientInterface:
 
 	def __init__(self):
@@ -82,32 +83,33 @@ class ClientInterface:
 			global getNotFriendsList
 			credentialsLength = str(len(getNotFriendsList) + len(self.currentUser.get()) + len(token) + 2)
 			messageToSend = credentialsLength + ':' + getNotFriendsList + ';' + self.currentUser.get() + ',' + token
-			
+			print(messageToSend)
 			credentialsLength2 = str(len(getFriendList) + len(self.currentUser.get()) + len(token) + 2)
 			messageToSend2 = credentialsLength2 + ':' + getFriendList + ';' + self.currentUser.get() + ',' + token
-			
+			print(messageToSend2)
 			global canSendToServer
 			while AppExit != True:
 				time.sleep(10)
 				if canSendToServer == True:
 					canSendToServer = False
 					ClientConnection.sendMessageToServer(self, messageToSend)
-					print(messageToSend)
-					UserString = ClientConnection.listenToMessages(self)
-					UserList = list(UserString.split(','))
+					
+					Userlist = ClientConnection.listenToListResponses(self)
+					print(Userlist)
 					self.currentUsersList.delete(0, END)
-					for i in range(0, len(UserList)):
-						self.currentUsersList.insert(END, UserList[i])
+					for i in range(0, len(Userlist)):
+						self.currentUsersList.insert(END, Userlist[i])
+
+					time.sleep(3)
 
 					ClientConnection.sendMessageToServer(self, messageToSend2)
-					print(messageToSend2)
-					UserString2 = ClientConnection.listenToMessages(self)
-					UserList2 = list(UserString2.split(','))
+					Userlist2 = ClientConnection.listenToListResponses(self)
 					self.friendsList.delete(0, END)
-					for i in range(0, len(UserList2)):
-						self.friendsList.insert(END, UserList2[i])
+					for i in range(0, len(Userlist2)):
+						self.friendsList.insert(END, Userlist2[i])
+					time.sleep(5)
 					canSendToServer = True
-					print('Thread1 Successfully sent message to server!!!')
+					print('Thread1 Successfully sent and received message from server!!!')
 
 
 		def getMessages():
@@ -131,6 +133,7 @@ class ClientInterface:
 		def loginCheck():
 			global isWaiting
 			global canSendToServer
+			global userToken
 			if(self.usernameLoginEntry.get() != '' or self.passwordLoginEntry.get() != ''):
 				usernameLength = len(self.usernameLoginEntry.get())
 				passwordLength = len(self.passwordLoginEntry.get())
@@ -201,26 +204,35 @@ class ClientInterface:
 		def ChatWith(): 
 			global canSendToServer
 			global isWaiting
+			global userToken
 			check = self.currentUsersList.selection_get()
 			fullList= list(self.friendsList.get(0,END))
-			if check in fullList:
-				self.otherUser.set(str(check))
-				credentialsLength = str(len(self.currentUser.get())+ len(self.otherUser.get())+ len(userToken) + len(getHistroy)+ 3)
-				messageToSend = credentialsLength + ':' + getHistroy + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken
+			if canSendToServer == True:
 				canSendToServer = False
-				ClientConnection.sendMessageToServer(self, messageToSend)
-				isWaiting = True
-				returnValue=''
-				returnValue = ClientConnection.listenToMessages(self)
-				canSendToServer = True
-				isWaiting = False
-				if(returnValue != ''):
+				if check in fullList:
+					self.otherUser.set(str(check))
+					credentialsLength = str(len(self.currentUser.get())+ len(self.otherUser.get())+ len(userToken) + len(getHistroy)+ 3)
+					messageToSend = credentialsLength + ':' + getHistroy + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken
+					print(messageToSend)
+					canSendToServer = False
+					ClientConnection.sendMessageToServer(self, messageToSend)
+					isWaiting = True
+					returnValue=[]
+					returnValue = ClientConnection.listenToMessageHistoryResp(self)
+					canSendToServer = True
+					isWaiting = False
 					self.messageHistory.configure(state='normal')
-					self.messageHistory.insert(END, returnValue)
+
+					for i in range(len(returnValue)):
+						self.messageHistory.insert(END, '\n'+returnValue[i])
+
 					self.messageHistory.update_idletasks()
-					self.messageHistory.configure(state='disabled')
+					self.messageHistory.configure(state='disabled')	
+					canSendToServer=True
+
 			else:
-				self.otherUser.set('Nobody')
+					self.otherUser.set('Nobody')
+					canSendToServer=True
 
 		def SendText():
 			global canSendToServer
@@ -273,9 +285,7 @@ class ClientInterface:
 			
 			print(file_stream.getvalue())
 
-
-
-
+			# Recreate file from read bytes
 			# with open('plm', "wb") as file:
 			# 	byte = file_stream.read(1)
 			# 	while byte:
@@ -284,7 +294,7 @@ class ClientInterface:
 					
 
 			print(counter)
-			#TODO open file browser and send image as bytes
+			
 
 ####################################################### CHAT ######################################################################
 		def sendToChat(): ## Function that erases Login Interface and initializes the Chat Interface
@@ -336,23 +346,18 @@ class ClientInterface:
 			self.messageHistory = st.ScrolledText(self.interface, width=40, height=25 )
 			self.messageHistory.grid(row=1, column=0)
 
-			# List of Connected Users # TODO Function to get currently connected users or all users
+			# List of Connected Users 
 			self.currentUsersListLabel = Label(self.listsframe, text="Current Users", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=0)
 			self.cUsersScroll = Scrollbar(self.listsframe)
 			self.currentUsersList = Listbox(self.listsframe,yscrollcommand=self.cUsersScroll.set, width= 15, height=15, selectmode=SINGLE)
 			self.cUsersScroll.config(command = self.currentUsersList.yview)
-			self.currentUsersList.insert(END, "Gigel")
-			self.currentUsersList.insert(END, "Keke")
-			self.currentUsersList.insert(END, "Juger")
 			self.currentUsersList.grid(row=1, column=0)
 			
 			# List of Friends 
 			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
 			self.friendsListScroll = Scrollbar(self.listsframe)
 			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll, width= 15, height=15, selectmode=SINGLE)
-			self.friendsList.insert(END, "Gicu")
-			self.friendsList.insert(END, "Ana")
-			self.friendsList.insert(END, "Mihai")
+			self.friendsList.insert(END, "ghaaaaarul")
 			self.friendsList.grid(row=1, column=2)
 
 			# New Frame for all user action buttons
@@ -386,7 +391,7 @@ class ClientInterface:
 				self.buttonsFrame.grid_rowconfigure(j, weight=1)
 			self.buttonsFrame.grid(row=2, column=1)
 
-			# Submit written message button (TODO Make it possible to send the message with "Enter")
+			# Submit written message button 
 			self.submitButton = Button(self.buttonsFrame, width=4, height=1, text="Send", command=SendText)
 			self.submitButton.grid(row=1, column=2)
 
@@ -395,8 +400,7 @@ class ClientInterface:
 			self.addImage.grid(row=1, column=0)
 
 			self.messageHistory.configure(state='disabled')
-			# Exit/Logout
-			# TODO>>
+			
 
 #################################################################################################################################
 
@@ -440,6 +444,7 @@ class ClientInterface:
 
 			# Back to login button
 			Button(self.fieldsFrame, text="Back to Login", width=10, command=backToLogin) .grid(row=4, column=0, sticky=NW)
+			
 			# Submit info button
 			Button(self.fieldsFrame, text="Submit", width=6, command=submitRegisterInfo) .grid(row=4, column=1, sticky=NE)
 
@@ -484,11 +489,6 @@ class ClientConnection:
 	def __init__(self):
 		#create an INET, STREAMing socket
 		global s
-		# try:
-		# 	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		# except socket.error:
-		# 	print('Failed to create socket')
-		# 	sys.exit()
 			
 		print('Socket Created')
 
@@ -503,7 +503,7 @@ class ClientConnection:
 
 		print('Socket Connected to ' + host + ' on ip ' + host + ':' + str(port))
 
-	#Now receive data
+	#Now receive data General
 	def listenToMessages(self):
 		global s
 		toDownload = 0
@@ -525,7 +525,7 @@ class ClientConnection:
 						buffer=""
 						gotHeader=True
 						receiveSize = int(header)
-					elif buffer >= b'0' or buffer >= b'9' and not gotHeader:
+					elif buffer >= b'0' or buffer <= b'9' and not gotHeader:
 						header+=str(buffer)
 						buffer=""
 					elif  buffer < b'0' or buffer >b'9' and not gotHeader:
@@ -548,6 +548,105 @@ class ClientConnection:
 
 		return(packet)
 
+	# receive message history data
+	def listenToMessageHistoryResp(self):
+		global s
+		usernameList=[]
+		header =""
+		gotHeader=False
+		receiveSize=1
+		buffer= ""
+		packet = ""
+		s.settimeout(5)
+		try:
+			while(True):
+				try:
+					buffer = s.recv(receiveSize).decode('utf-8')
+				
+				except socket.timeout as e:
+					err= e.args[0]
+					if err == 'timed out':
+						return usernameList
+					
+				if len(buffer) :
+					if buffer == ';' and not gotHeader:
+						buffer=""
+						gotHeader=True
+						
+						receiveSize = int(header)
+					elif buffer >= '0' and buffer <= '9' and not gotHeader:
+						header+=buffer
+						buffer=""
+					elif gotHeader == True and receiveSize != 1:
+						
+						packet+=buffer
+						usernameList.append(packet)
+
+						buffer=""
+						gotHeader=False
+						receiveSize=1
+						header=""
+						packet=""
+							
+				else:
+					break
+			
+
+		except socket.error:
+			return("Failed to receive message")
+
+		return(packet)
+
+
+	# receive list data
+	def listenToListResponses(self):
+		global s
+		usernameList=[]
+		header =""
+		gotHeader=False
+		receiveSize=1
+		buffer= ""
+		packet = ""
+		s.settimeout(5)
+		try:
+			while(True):
+				try:
+					buffer = s.recv(receiveSize).decode('utf-8')
+				except socket.timeout as e:
+					err= e.args[0]
+					if err == 'timed out':
+						return usernameList
+					
+				if len(buffer) :
+					if buffer == ';' and not gotHeader:
+						buffer=""
+						gotHeader=True
+						receiveSize = int(header)
+					elif buffer >= '0' and buffer <= '9' and not gotHeader:
+						header+=buffer
+						buffer=""
+					elif gotHeader == True and receiveSize != 1:
+						packet+=buffer
+						usernameList.append(packet)
+
+						buffer=""
+						gotHeader=False
+						receiveSize=1
+						header=""
+						packet=""
+							
+				else:
+					break
+			
+
+		except socket.error:
+			return("Failed to receive message")
+
+
+		return(packet)
+
+
+	# receive login info
 	def listenToLoginInfo(self):
 		global s
 		buffer= ""
@@ -576,11 +675,14 @@ class ClientConnection:
 			
 		return(False)
 
+	# close connection
 	def CloseSocket(self):
 		global s
 		s.close()
 
 #############################################################################################
+
+###### main #####
 
 Conn = ClientConnection()
 GUI = ClientInterface()

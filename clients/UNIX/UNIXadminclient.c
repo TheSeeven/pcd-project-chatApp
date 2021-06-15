@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
         perror("socket() failed");
         return 0;
     }
-    // bzero(&serveraddr, sizeof(serveraddr));
+
     serveraddr.sun_family = AF_UNIX;
     strcpy(serveraddr.sun_path, SERVER_PATH);
 
