@@ -169,7 +169,6 @@ char *getDataBlockedUsers()
     char *result;
     int totalSize = getBlockedUsersSize();
     int resultDataCounter = 0;
-    int resultCounter = 0;
     char header[10] = {0};
     intToString(totalSize, header);
     result = malloc(totalSize + strlen(header) + 1);
@@ -182,8 +181,8 @@ char *getDataBlockedUsers()
         if (blockedUsers[i] != 0)
         {
             for (int j = 0; j < strlen(blockedUsers[i]); j++)
-                result[resultCounter++] = blockedUsers[i][j];
-            result[resultCounter++] = ',';
+                result[resultDataCounter++] = blockedUsers[i][j];
+            result[resultDataCounter++] = ',';
         }
     }
     return result;
@@ -260,7 +259,10 @@ dataPack processAdminRequest(char *string)
     else if (strcmp(request, "getblockedusers") == 0)
     {
         result.data = getDataBlockedUsers();
-        result.msgLength = getBlockedUsersSize();
+        char Header[10]={0};
+        intToString(result.msgLength, Header);
+        result.msgLength = getBlockedUsersSize() + strlen(Header) + 1;
+        
     }
     free(request);
     return result;

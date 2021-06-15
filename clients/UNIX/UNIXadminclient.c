@@ -166,7 +166,8 @@ void prettyPrint(char *data, int msgLength, char *request)
         {
             if (data[i] == ',')
                 printf("\n");
-            printf("%c", data[i]);
+            else
+                printf("%c", data[i]);
         }
         printf("\n");
     }

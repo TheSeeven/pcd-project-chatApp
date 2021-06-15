@@ -236,15 +236,13 @@ class ClientInterface:
 
 		def SendText():
 			global canSendToServer
-			if(self.otherUser.get() != 'Nobody' and self.messageEntryBox.get() != ''):
+			if(self.otherUser.get() != 'Nobody' and self.messageEntryBox.get() != '' and canSendToServer==True):
+				canSendToServer=False
 				textToSend=self.messageEntryBox.get()
-
 				credentialsLength = str(len(sendMessage) + len(self.currentUser.get()) + len(self.otherUser.get()) + len(userToken) + len(textToSend) + 4)
 				messageToSend = credentialsLength + ':' + sendMessage + ';' + self.currentUser.get() + ',' + self.otherUser.get() + ',' + userToken + ',' + textToSend
 				
-				canSendToServer = False
 				returnedValue = ClientConnection.sendMessageToServer(self, messageToSend)
-				canSendToServer = True
 				
 				self.messageToBeSent='\n'+str(self.currentUser.get())+': '+str(textToSend)
 				self.messageHistory.configure(state='normal')
@@ -252,7 +250,7 @@ class ClientInterface:
 				self.messageHistory.update_idletasks()
 				self.messageHistory.configure(state='disabled')
 				self.messageEntryBox.delete(0, END)
-			
+				canSendToServer = True
 
 		def backToLogin():
 			self.fieldsFrame.grid_remove()
@@ -286,7 +284,7 @@ class ClientInterface:
 			print(file_stream.getvalue())
 
 			# Recreate file from read bytes
-			# with open('plm', "wb") as file:
+			# with open('test', "wb") as file:
 			# 	byte = file_stream.read(1)
 			# 	while byte:
 			# 		file.write(byte)
@@ -357,7 +355,6 @@ class ClientInterface:
 			self.friendsListLabel = Label(self.listsframe, text="Friends list", bg="gray10", fg="white", font="none 8 bold", wraplength=65) .grid(row=0, column=2)
 			self.friendsListScroll = Scrollbar(self.listsframe)
 			self.friendsList = Listbox(self.listsframe, yscrollcommand=self.friendsListScroll, width= 15, height=15, selectmode=SINGLE)
-			self.friendsList.insert(END, "ghaaaaarul")
 			self.friendsList.grid(row=1, column=2)
 
 			# New Frame for all user action buttons
